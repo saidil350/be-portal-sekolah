@@ -13,6 +13,8 @@ export const attendanceRecords = pgTable("attendance_records", {
   notes: text("notes"),
   locationLatitude: doublePrecision("location_latitude"),
   locationLongitude: doublePrecision("location_longitude"),
+  selfieUrl: text("selfie_url"),
+  faceVerified: boolean("face_verified").default(false),
   deviceInfo: text("device_info"),
   isRealtimeCheckedIn: boolean("is_realtime_checked_in").default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),

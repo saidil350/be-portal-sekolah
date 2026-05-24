@@ -7,7 +7,9 @@ import { attendanceRecords } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { checkInSchema } from "@/validations/attendance";
 import { emitToTenant } from "@/websocket";
-import { BadRequestError } from "@/utils/AppError";
+import { BadRequestError, ForbiddenError } from "@/utils/AppError";
+
+const allowedAttendanceRoles = new Set(["STAFF", "GURU", "ADMIN_IT", "KEPALA_SEKOLAH"]);
 
 function mapAttendanceToResponse(record: any) {
   return {
@@ -21,6 +23,8 @@ function mapAttendanceToResponse(record: any) {
     notes: record.notes,
     locationLatitude: record.locationLatitude,
     locationLongitude: record.locationLongitude,
+    selfieUrl: record.selfieUrl,
+    faceVerified: record.faceVerified,
     deviceInfo: record.deviceInfo,
     isRealtimeCheckedIn: record.isRealtimeCheckedIn,
     createdAt: record.createdAt.toISOString(),
@@ -37,9 +41,21 @@ export const POST = withErrorHandler(
       return errorResponse("Validasi gagal", 400, parsed.error.errors);
     }
 
-    const { latitude, longitude, notes } = parsed.data;
+    const { latitude, longitude, selfieUrl, faceVerified, notes } = parsed.data;
     const userId = authSession.user.id;
     const tenantId = authSession.user.tenantId;
+
+    if (!allowedAttendanceRoles.has(authSession.user.role)) {
+      throw new ForbiddenError("Role ini tidak memiliki akses check-in attendance");
+    }
+
+    if (!latitude || !longitude) {
+      throw new BadRequestError("GPS wajib divalidasi sebelum check-in");
+    }
+
+    if (!selfieUrl || !faceVerified) {
+      throw new BadRequestError("Verifikasi wajah wajib dilakukan sebelum check-in");
+    }
 
     if (!tenantId) {
       return errorResponse("Tenant context missing", 400);
@@ -84,6 +100,8 @@ export const POST = withErrorHandler(
         status,
         locationLatitude: latitude ?? null,
         locationLongitude: longitude ?? null,
+        selfieUrl,
+        faceVerified: true,
         notes: notes ?? null,
         isRealtimeCheckedIn: true,
       })
