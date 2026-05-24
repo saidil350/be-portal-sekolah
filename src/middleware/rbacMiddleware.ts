@@ -1,48 +1,30 @@
-import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { NextRequest } from "next/server";
+import { AuthSession, withAuth } from "./auth";
 import { errorResponse } from "@/utils/apiResponse";
+import { ResolvedContext } from "@/utils/apiHandler";
 
-export const withRole = (roles: string[], handler: Function) => {
-  return async (req: NextRequest, context: any) => {
-    try {
-      const session = await auth.api.getSession({ headers: req.headers });
-      
-      if (!session || !session.user) {
-        return errorResponse("Unauthorized", 401);
-      }
+type HandlerFn = (
+  req: NextRequest,
+  context: ResolvedContext,
+  authSession: AuthSession
+) => Promise<Response> | Response;
 
-      // Pastikan custom property "role" ada di type session.user
-      const userRole = (session.user as any).role;
-
-      if (!roles.includes(userRole)) {
-        return errorResponse("Forbidden: Insufficient privileges", 403);
-      }
-
-      return handler(req, context, session);
-    } catch (error) {
-      return errorResponse("Internal Server Error", 500, error);
+export const withRole = (roles: string[], handler: HandlerFn) => {
+  return withAuth(async (req, context, authSession) => {
+    const userRole = authSession.user.role;
+    if (!roles.includes(userRole)) {
+      return errorResponse("Forbidden: Insufficient privileges", 403);
     }
-  };
+    return handler(req, context, authSession);
+  });
 };
 
-export const withTenant = (handler: Function) => {
-  return async (req: NextRequest, context: any) => {
-    try {
-      const session = await auth.api.getSession({ headers: req.headers });
-      
-      if (!session || !session.user) {
-        return errorResponse("Unauthorized", 401);
-      }
-
-      const tenantId = (session.user as any).tenantId;
-
-      if (!tenantId) {
-        return errorResponse("Tenant context missing", 400);
-      }
-
-      return handler(req, context, session);
-    } catch (error) {
-      return errorResponse("Internal Server Error", 500, error);
+export const withTenant = (handler: HandlerFn) => {
+  return withAuth(async (req, context, authSession) => {
+    const tenantId = authSession.user.tenantId;
+    if (!tenantId) {
+      return errorResponse("Tenant context missing", 400);
     }
-  };
+    return handler(req, context, authSession);
+  });
 };

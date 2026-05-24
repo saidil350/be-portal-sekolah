@@ -9,7 +9,8 @@ export const users = pgTable("users", {
   emailVerified: boolean("email_verified").notNull().default(false),
   image: text("image"),
   password: text("password"),
-  role: text("role").default("user").notNull(), // admin, teacher, student, user dll.
+  role: text("role").default("user").notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

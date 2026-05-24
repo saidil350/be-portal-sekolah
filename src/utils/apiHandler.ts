@@ -4,13 +4,14 @@ import { AppError } from "./AppError";
 import { logger } from "@/logging";
 import { z } from "zod";
 
-type ApiHandlerContext = { params: Record<string, string> };
-type ApiHandlerFunction = (req: NextRequest, context: ApiHandlerContext) => Promise<NextResponse> | NextResponse;
+export type ResolvedContext = { params: Record<string, string> };
+type ApiHandlerFunction = (req: NextRequest, context: ResolvedContext) => Promise<Response | NextResponse> | Response | NextResponse;
 
 export const withErrorHandler = (handler: ApiHandlerFunction) => {
-  return async (req: NextRequest, context: ApiHandlerContext) => {
+  return async (req: NextRequest, context: { params: Promise<Record<string, string>> }) => {
     try {
-      return await handler(req, context);
+      const params = await context.params;
+      return await handler(req, { params });
     } catch (error: any) {
       logger.error({ err: error }, `API Error on ${req.method} ${req.url}`);
 
@@ -22,7 +23,6 @@ export const withErrorHandler = (handler: ApiHandlerFunction) => {
         return errorResponse("Validation Error", 400, error.errors);
       }
 
-      // Default to 500
       return errorResponse("Internal Server Error", 500, process.env.NODE_ENV === 'development' ? error.message : undefined);
     }
   };
