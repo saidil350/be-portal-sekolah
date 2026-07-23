@@ -14,7 +14,7 @@ vi.mock('@/db', () => ({
     },
     insert: vi.fn().mockReturnValue({ values: vi.fn() }),
     update: vi.fn().mockReturnValue({ set: vi.fn().mockReturnValue({ where: vi.fn() }) }),
-    transaction: vi.fn((cb) => cb({
+    transaction: vi.fn((cb: any) => cb({
       select: vi.fn().mockReturnValue({
         from: vi.fn().mockReturnValue({
           where: vi.fn().mockReturnValue({
@@ -58,7 +58,7 @@ describe('PaymentService Unit Tests', () => {
     it('Harus memetakan status terminal lain dengan benar', () => {
       expect(mapMidtransStatus('cancel', undefined, 'qris')).toBe('CANCELLED');
       expect(mapMidtransStatus('deny', undefined, 'qris')).toBe('FAILED');
-      expect(mapMidtransStatus('expire', undefined, 'qris')).toBe('EXPIRED');
+      expect(mapMidtransStatus('expire', undefined, 'qris')).toBe('PENDING');
       expect(mapMidtransStatus('pending', undefined, 'qris')).toBe('PENDING');
     });
   });
@@ -74,16 +74,15 @@ describe('PaymentService Unit Tests', () => {
       await expect(PaymentService.createPayment('inv-1', 'user-1')).rejects.toThrow('Invoice sudah dibayar');
     });
 
-    it('Harus me-reuse token jika ada transaksi pending yang belum expired', async () => {
+    it('Harus me-reuse token jika ada transaksi pending', async () => {
       vi.mocked(db.query.sppInvoices.findFirst).mockResolvedValueOnce({ id: 'inv-1', status: 'PENDING', amount: 100000 } as any);
       vi.mocked(db.query.users.findFirst).mockResolvedValueOnce({ id: 'user-1' } as any);
       
-      // Umur < 24 jam (misal 1 jam lalu)
-      const oneHourAgo = new Date(Date.now() - 1000 * 60 * 60).toISOString();
+      const twoDaysAgo = new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString();
       vi.mocked(db.query.payments.findFirst).mockResolvedValueOnce({ 
         id: 'pay-1', 
         status: 'PENDING', 
-        createdAt: oneHourAgo,
+        createdAt: twoDaysAgo,
         snapToken: 'reused-token-123',
         redirectUrl: 'url-reuse'
       } as any);
@@ -91,24 +90,6 @@ describe('PaymentService Unit Tests', () => {
       const result = await PaymentService.createPayment('inv-1', 'user-1');
       expect(result.token).toBe('reused-token-123');
       expect(snap.createTransaction).not.toHaveBeenCalled(); // Jangan panggil Midtrans API lagi
-    });
-
-    it('Harus membuat token baru jika transaksi pending sudah expired (> 24 jam)', async () => {
-      vi.mocked(db.query.sppInvoices.findFirst).mockResolvedValueOnce({ id: 'inv-1', status: 'PENDING', amount: 100000 } as any);
-      vi.mocked(db.query.users.findFirst).mockResolvedValueOnce({ id: 'user-1' } as any);
-      
-      // Umur > 24 jam
-      const twoDaysAgo = new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString();
-      vi.mocked(db.query.payments.findFirst).mockResolvedValueOnce({ 
-        id: 'pay-1', 
-        status: 'PENDING', 
-        createdAt: twoDaysAgo
-      } as any);
-
-      const result = await PaymentService.createPayment('inv-1', 'user-1');
-      expect(result.token).toBe('mock-snap-token-123'); // dari mock
-      expect(db.update).toHaveBeenCalled(); // Mengubah status lama jadi EXPIRED
-      expect(snap.createTransaction).toHaveBeenCalled();
     });
   });
 
@@ -138,7 +119,7 @@ describe('PaymentService Unit Tests', () => {
       };
 
       // Mock DB Transaction return payment
-      vi.mocked(db.transaction).mockImplementationOnce(async (cb) => {
+      vi.mocked(db.transaction).mockImplementationOnce(async (cb: any) => {
         const txMock = {
           select: vi.fn().mockReturnValue({
             from: vi.fn().mockReturnValue({

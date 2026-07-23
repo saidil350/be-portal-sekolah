@@ -37,7 +37,10 @@ export function mapMidtransStatus(
   if (transactionStatus === "settlement") return PAYMENT_STATUS.PAID;
   if (transactionStatus === "cancel") return PAYMENT_STATUS.CANCELLED;
   if (transactionStatus === "deny" || transactionStatus === "failure") return PAYMENT_STATUS.FAILED;
-  if (transactionStatus === "expire") return PAYMENT_STATUS.EXPIRED;
+  if (transactionStatus === "expire") {
+    // Sesuai requirement: Pada flow sandbox / transaksi, jangan buat expired, buat PENDING saja
+    return env.MIDTRANS_IS_PRODUCTION ? PAYMENT_STATUS.EXPIRED : PAYMENT_STATUS.PENDING;
+  }
   if (transactionStatus === "pending") return PAYMENT_STATUS.PENDING;
   if (transactionStatus === "refund") return PAYMENT_STATUS.REFUNDED;
   if (transactionStatus === "chargeback") return PAYMENT_STATUS.CHARGEBACK;
@@ -69,22 +72,13 @@ export class PaymentService {
     });
 
     if (existingPending) {
-      const now = new Date().getTime();
-      const createdAt = new Date(existingPending.createdAt).getTime();
-      const hoursDiff = (now - createdAt) / (1000 * 60 * 60);
-
-      if (hoursDiff < PAYMENT_CONFIG.EXPIRED_HOURS && existingPending.snapToken) {
+      if (existingPending.snapToken) {
         await logAudit('PAYMENT_PENDING_REUSED', existingPending.orderId, { invoiceId: invoice.id });
         return {
           orderId: existingPending.orderId,
           token: existingPending.snapToken,
           redirectUrl: existingPending.redirectUrl,
         };
-      } else {
-        await logAudit('PAYMENT_EXPIRED', existingPending.orderId);
-        await db.update(payments)
-          .set({ status: PAYMENT_STATUS.EXPIRED, updatedAt: new Date() })
-          .where(eq(payments.id, existingPending.id));
       }
     }
 
@@ -408,8 +402,8 @@ export class PaymentService {
       
       const activeAttempt = paidOrderAttempt || rows[0];
       await logAudit('PAYMENT_PAID', activeAttempt.payment.orderId, { amount: activeAttempt.payment.amount, via: 'admin_sync' });
-    } else if (([PAYMENT_STATUS.FAILED, PAYMENT_STATUS.EXPIRED, PAYMENT_STATUS.CANCELLED] as PaymentStatus[]).includes(overallNewStatus)) {
-      // Jika status terburuk gagal/cancel/expire dan tidak ada yang PAID
+    } else if (([PAYMENT_STATUS.FAILED, PAYMENT_STATUS.CANCELLED] as PaymentStatus[]).includes(overallNewStatus) || (overallNewStatus === PAYMENT_STATUS.EXPIRED && env.MIDTRANS_IS_PRODUCTION)) {
+      // Jika status terburuk gagal/cancel/expire dan tidak ada yang PAID (pada mode produksi)
       await db
         .update(sppInvoices)
         .set({ status: overallNewStatus, updatedAt: new Date() })
