@@ -108,9 +108,10 @@ export const OPTIONS = async () => {
   return new Response(null, {
     status: 204,
     headers: {
-      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Origin": process.env.APP_URL || "http://localhost:3000",
       "Access-Control-Allow-Methods": "GET, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Tenant-ID",
+      "Access-Control-Allow-Credentials": "true",
     },
   });
 };

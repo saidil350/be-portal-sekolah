@@ -42,11 +42,11 @@ export const GET = withErrorHandler(
     // Build conditions
     const conditions = [];
 
-    // Tenant scoping: non-SUPER_ADMIN users can only see their own tenant
-    if (authSession.user.role !== "SUPER_ADMIN") {
+    // Tenant scoping: non-ADMIN_IT users can only see their own tenant
+    if (authSession.user.role !== "ADMIN_IT") {
       conditions.push(eq(users.tenantId, authSession.user.tenantId!));
     } else if (tenantIdParam) {
-      // SUPER_ADMIN can optionally filter by tenantId
+      // ADMIN_IT can optionally filter by tenantId
       conditions.push(eq(users.tenantId, tenantIdParam));
     }
 
@@ -102,13 +102,13 @@ export const GET = withErrorHandler(
 
 // POST /api/v1/users — Create a new user
 export const POST = withErrorHandler(
-  withRole(["SUPER_ADMIN", "ADMIN_IT"], async (req, context, authSession) => {
+  withRole(["ADMIN_IT"], async (req, context, authSession) => {
     const body = await req.json();
     const parsed = createUserSchema.parse(body);
 
-    // If not SUPER_ADMIN, force tenantId to the authenticated user's tenantId
+    // If not ADMIN_IT, force tenantId to the authenticated user's tenantId
     const tenantId =
-      authSession.user.role !== "SUPER_ADMIN"
+      authSession.user.role !== "ADMIN_IT"
         ? authSession.user.tenantId!
         : parsed.tenantId || authSession.user.tenantId!;
 

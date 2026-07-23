@@ -6,8 +6,14 @@ const envSchema = z.object({
   REDIS_URL: z.string().url("Format REDIS_URL tidak valid").optional(),
   BETTER_AUTH_SECRET: z.string().min(1, "BETTER_AUTH_SECRET harus diisi"),
   BETTER_AUTH_URL: z.string().url("Format BETTER_AUTH_URL tidak valid"),
-  MIDTRANS_SERVER_KEY: z.string().optional(),
-  MIDTRANS_CLIENT_KEY: z.string().optional(),
+  APP_URL: z.string().url("Format APP_URL tidak valid"),
+  WEBHOOK_URL: z.string().url("Format WEBHOOK_URL tidak valid").optional(), // Bisa diderivasi dari APP_URL jika diperlukan, tapi sebaiknya eksplicit
+  MIDTRANS_SERVER_KEY: z.string().min(1, "MIDTRANS_SERVER_KEY harus diisi"),
+  MIDTRANS_CLIENT_KEY: z.string().min(1, "MIDTRANS_CLIENT_KEY harus diisi"),
+  MIDTRANS_IS_PRODUCTION: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((v) => v === "true"), // true = produksi, false = sandbox. Mencegah mismatch yang menyebabkan signature gagal.
 });
 
 const _env = envSchema.safeParse(process.env);

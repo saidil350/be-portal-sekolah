@@ -1,7 +1,6 @@
 import { pgTable, text, timestamp, boolean, uuid, date } from "drizzle-orm/pg-core";
 import { tenants } from "./tenants";
 import { users } from "./users";
-import { classes } from "./classes";
 
 export const studentProfiles = pgTable("student_profiles", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -12,7 +11,6 @@ export const studentProfiles = pgTable("student_profiles", {
   gender: text("gender").notNull(),
   birthPlace: text("birth_place"),
   birthDate: date("birth_date"),
-  classId: uuid("class_id").references(() => classes.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

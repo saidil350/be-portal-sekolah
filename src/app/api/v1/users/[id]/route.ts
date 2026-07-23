@@ -36,9 +36,9 @@ export const GET = withErrorHandler(
       throw new NotFoundError("User not found");
     }
 
-    // Tenant scoping: non-SUPER_ADMIN can only view users in same tenant
+    // Tenant scoping: non-ADMIN_IT can only view users in same tenant
     if (
-      authSession.user.role !== "SUPER_ADMIN" &&
+      authSession.user.role !== "ADMIN_IT" &&
       user.tenantId !== authSession.user.tenantId
     ) {
       throw new ForbiddenError("You do not have access to this user");
@@ -50,7 +50,7 @@ export const GET = withErrorHandler(
 
 // PATCH /api/v1/users/[id] — Update user by ID
 export const PATCH = withErrorHandler(
-  withRole(["SUPER_ADMIN", "ADMIN_IT"], async (req, context, authSession) => {
+  withRole(["ADMIN_IT"], async (req, context, authSession) => {
     const { id } = await context.params;
     const body = await req.json();
     const parsed = updateUserSchema.parse(body);
@@ -64,9 +64,9 @@ export const PATCH = withErrorHandler(
       throw new NotFoundError("User not found");
     }
 
-    // Tenant scoping: non-SUPER_ADMIN can only update users in same tenant
+    // Tenant scoping: non-ADMIN_IT can only update users in same tenant
     if (
-      authSession.user.role !== "SUPER_ADMIN" &&
+      authSession.user.role !== "ADMIN_IT" &&
       existingUser.tenantId !== authSession.user.tenantId
     ) {
       throw new ForbiddenError("You do not have access to update this user");
@@ -114,7 +114,7 @@ export const PATCH = withErrorHandler(
 
 // DELETE /api/v1/users/[id] — Soft delete user (set isActive = false)
 export const DELETE = withErrorHandler(
-  withRole(["SUPER_ADMIN", "ADMIN_IT"], async (req, context, authSession) => {
+  withRole(["ADMIN_IT"], async (req, context, authSession) => {
     const { id } = await context.params;
 
     // Fetch existing user
@@ -126,9 +126,9 @@ export const DELETE = withErrorHandler(
       throw new NotFoundError("User not found");
     }
 
-    // Tenant scoping: non-SUPER_ADMIN can only delete users in same tenant
+    // Tenant scoping: non-ADMIN_IT can only delete users in same tenant
     if (
-      authSession.user.role !== "SUPER_ADMIN" &&
+      authSession.user.role !== "ADMIN_IT" &&
       existingUser.tenantId !== authSession.user.tenantId
     ) {
       throw new ForbiddenError("You do not have access to delete this user");

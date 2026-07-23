@@ -24,7 +24,7 @@ function mapNotificationToResponse(n: any) {
 }
 
 export const POST = withErrorHandler(
-  withRole(["SUPER_ADMIN", "ADMIN_IT", "KEPALA_SEKOLAH"], async (req, context, authSession) => {
+  withRole(["ADMIN_IT", "KEPALA_SEKOLAH"], async (req, context, authSession) => {
     const body = await req.json();
     const parsed = broadcastNotificationSchema.parse(body);
 
@@ -59,9 +59,10 @@ export const OPTIONS = async () => {
   return new Response(null, {
     status: 204,
     headers: {
-      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Origin": process.env.APP_URL || "http://localhost:3000",
       "Access-Control-Allow-Methods": "POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Tenant-ID",
+      "Access-Control-Allow-Credentials": "true",
     },
   });
 };

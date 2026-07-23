@@ -6,12 +6,7 @@ import { db } from "@/db";
 import {
   users,
   tenants,
-  classes,
   attendanceRecords,
-  invoices,
-  payments,
-  assignments,
-  submissions,
 } from "@/db/schema";
 import { eq, and, sql, count } from "drizzle-orm";
 
@@ -31,18 +26,11 @@ export const GET = withErrorHandler(
         .from(users)
         .where(eq(users.isActive, true));
 
-      const [revenueResult] = await db
-        .select({
-          total: sql<string>`COALESCE(SUM(${payments.amount}), 0)`,
-        })
-        .from(payments);
-
-      // Calculate uptime as a static value for demonstration
       const serviceStatus = "99.98%";
 
       return successResponse({
         totalSchools: totalSchoolsResult.count,
-        monthlyRevenue: revenueResult.total,
+        monthlyRevenue: "0",
         serviceStatus,
         totalUsers: totalUsersResult.count,
       });
@@ -73,11 +61,6 @@ export const GET = withErrorHandler(
           and(eq(users.tenantId, tenantId), eq(users.role, "GURU"), eq(users.isActive, true))
         );
 
-      const [totalClassesResult] = await db
-        .select({ count: count() })
-        .from(classes)
-        .where(eq(classes.tenantId, tenantId));
-
       // Attendance rate: percentage of PRESENT / HADIR records out of total records in tenant
       const [attendanceResult] = await db
         .select({
@@ -95,7 +78,7 @@ export const GET = withErrorHandler(
       return successResponse({
         totalStudents: totalStudentsResult.count,
         totalTeachers: totalTeachersResult.count,
-        totalClasses: totalClassesResult.count,
+        totalClasses: 0,
         attendanceRate,
       });
     }
@@ -129,31 +112,10 @@ export const GET = withErrorHandler(
           ? ((attendanceResult.present / attendanceResult.total) * 100).toFixed(1)
           : "0";
 
-      // Ungraded submissions for assignments created by this teacher
-      const [ungradedResult] = await db
-        .select({ count: count() })
-        .from(submissions)
-        .innerJoin(assignments, eq(submissions.assignmentId, assignments.id))
-        .where(
-          and(
-            eq(assignments.teacherId, userId),
-            eq(submissions.tenantId, tenantId),
-            sql`${submissions.score} IS NULL`
-          )
-        );
-
-      // Total distinct assignments (subjects) taught by this teacher
-      const [subjectsResult] = await db
-        .select({ count: count() })
-        .from(assignments)
-        .where(
-          and(eq(assignments.teacherId, userId), eq(assignments.tenantId, tenantId))
-        );
-
       return successResponse({
         attendanceRate,
-        ungradedAssignments: ungradedResult.count,
-        totalSubjects: subjectsResult.count,
+        ungradedAssignments: 0,
+        totalSubjects: 0,
       });
     }
 
@@ -167,32 +129,10 @@ export const GET = withErrorHandler(
         });
       }
 
-      // Total invoices created in this tenant
-      const [invoicesResult] = await db
-        .select({ count: count() })
-        .from(invoices)
-        .where(eq(invoices.tenantId, tenantId));
-
-      // Pending (unpaid) invoices
-      const [pendingResult] = await db
-        .select({ count: count() })
-        .from(invoices)
-        .where(
-          and(eq(invoices.tenantId, tenantId), eq(invoices.status, "UNPAID"))
-        );
-
-      // Total collected SPP (sum of paid invoice amounts)
-      const [collectedResult] = await db
-        .select({
-          total: sql<string>`COALESCE(SUM(${payments.amount}), 0)`,
-        })
-        .from(payments)
-        .where(eq(payments.tenantId, tenantId));
-
       return successResponse({
-        createdInvoices: invoicesResult.count,
-        pendingPayments: pendingResult.count,
-        collectedSPP: collectedResult.total,
+        createdInvoices: 0,
+        pendingPayments: 0,
+        collectedSPP: "0",
       });
     }
 
@@ -225,42 +165,10 @@ export const GET = withErrorHandler(
           ? ((attendanceResult.present / attendanceResult.total) * 100).toFixed(1)
           : "0";
 
-      // Pending assignments: assignments in the student's classes where they haven't submitted
-      const [pendingResult] = await db
-        .select({ count: count() })
-        .from(assignments)
-        .leftJoin(
-          submissions,
-          and(
-            eq(submissions.assignmentId, assignments.id),
-            eq(submissions.studentId, userId)
-          )
-        )
-        .where(
-          and(
-            eq(assignments.tenantId, tenantId),
-            sql`${submissions.id} IS NULL`
-          )
-        );
-
-      // Current unpaid SPP bill for this student
-      const [sppResult] = await db
-        .select({
-          total: sql<string>`COALESCE(SUM(${invoices.amount}), 0)`,
-        })
-        .from(invoices)
-        .where(
-          and(
-            eq(invoices.studentId, userId),
-            eq(invoices.tenantId, tenantId),
-            eq(invoices.status, "UNPAID")
-          )
-        );
-
       return successResponse({
         attendanceRate,
-        pendingAssignments: pendingResult.count,
-        sppBill: sppResult.total,
+        pendingAssignments: 0,
+        sppBill: "0",
       });
     }
 
@@ -273,9 +181,10 @@ export const OPTIONS = async () => {
   return new Response(null, {
     status: 204,
     headers: {
-      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Origin": process.env.APP_URL || "http://localhost:3000",
       "Access-Control-Allow-Methods": "GET, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Tenant-ID",
+      "Access-Control-Allow-Credentials": "true",
     },
   });
 };

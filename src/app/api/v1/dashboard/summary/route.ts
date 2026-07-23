@@ -6,10 +6,6 @@ import { db } from "@/db";
 import {
   users,
   attendanceRecords,
-  invoices,
-  payments,
-  assignments,
-  submissions,
   notifications,
 } from "@/db/schema";
 import { eq, and, sql, count, desc } from "drizzle-orm";
@@ -72,34 +68,7 @@ export const GET = withErrorHandler(
       });
     }
 
-    // Recent payments
-    const paymentScope =
-      role === "ADMIN_IT" || role === "KEPALA_SEKOLAH" || role === "STAFF"
-        ? eq(payments.tenantId, effectiveTenantId)
-        : and(
-            eq(payments.tenantId, effectiveTenantId),
-            eq(invoices.studentId, userId)
-          );
 
-    const recentPayments = await db
-      .select({
-        invoiceNumber: invoices.invoiceNumber,
-        paidAt: payments.paidAt,
-        amount: payments.amount,
-      })
-      .from(payments)
-      .innerJoin(invoices, eq(payments.invoiceId, invoices.id))
-      .where(paymentScope)
-      .orderBy(desc(payments.paidAt))
-      .limit(5);
-
-    for (const payment of recentPayments) {
-      recentActivity.push({
-        type: "payment",
-        description: `Invoice #${payment.invoiceNumber} paid (Rp ${payment.amount})`,
-        timestamp: payment.paidAt.toISOString(),
-      });
-    }
 
     // Sort all activity by timestamp descending
     recentActivity.sort(
@@ -113,66 +82,6 @@ export const GET = withErrorHandler(
     let ungradedSubmissions = 0;
     let pendingInvoices = 0;
     let unreadNotifications = 0;
-
-    // Ungraded submissions
-    if (role === "GURU") {
-      const [ungradedResult] = await db
-        .select({ count: count() })
-        .from(submissions)
-        .innerJoin(assignments, eq(submissions.assignmentId, assignments.id))
-        .where(
-          and(
-            eq(assignments.teacherId, userId),
-            eq(submissions.tenantId, effectiveTenantId),
-            sql`${submissions.score} IS NULL`
-          )
-        );
-      ungradedSubmissions = ungradedResult.count;
-    } else if (
-      role === "ADMIN_IT" ||
-      role === "KEPALA_SEKOLAH"
-    ) {
-      const [ungradedResult] = await db
-        .select({ count: count() })
-        .from(submissions)
-        .where(
-          and(
-            eq(submissions.tenantId, effectiveTenantId),
-            sql`${submissions.score} IS NULL`
-          )
-        );
-      ungradedSubmissions = ungradedResult.count;
-    }
-
-    // Pending invoices
-    if (
-      role === "ADMIN_IT" ||
-      role === "KEPALA_SEKOLAH" ||
-      role === "STAFF"
-    ) {
-      const [pendingInvoicesResult] = await db
-        .select({ count: count() })
-        .from(invoices)
-        .where(
-          and(
-            eq(invoices.tenantId, effectiveTenantId),
-            eq(invoices.status, "UNPAID")
-          )
-        );
-      pendingInvoices = pendingInvoicesResult.count;
-    } else if (role === "SISWA") {
-      const [pendingInvoicesResult] = await db
-        .select({ count: count() })
-        .from(invoices)
-        .where(
-          and(
-            eq(invoices.studentId, userId),
-            eq(invoices.tenantId, effectiveTenantId),
-            eq(invoices.status, "UNPAID")
-          )
-        );
-      pendingInvoices = pendingInvoicesResult.count;
-    }
 
     // Unread notifications
     const notificationScope =
@@ -208,9 +117,10 @@ export const OPTIONS = async () => {
   return new Response(null, {
     status: 204,
     headers: {
-      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Origin": process.env.APP_URL || "http://localhost:3000",
       "Access-Control-Allow-Methods": "GET, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Tenant-ID",
+      "Access-Control-Allow-Credentials": "true",
     },
   });
 };
