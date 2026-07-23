@@ -6,6 +6,7 @@ export const studentProfiles = pgTable("student_profiles", {
   id: uuid("id").primaryKey().defaultRandom(),
   tenantId: uuid("tenant_id").references(() => tenants.id).notNull(),
   userId: uuid("user_id").references(() => users.id).notNull(),
+  classId: uuid("class_id"),
   nis: text("nis").notNull(),
   nisn: text("nisn"),
   gender: text("gender").notNull(),

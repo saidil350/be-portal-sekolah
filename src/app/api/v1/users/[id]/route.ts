@@ -50,7 +50,7 @@ export const GET = withErrorHandler(
 
 // PATCH /api/v1/users/[id] — Update user by ID
 export const PATCH = withErrorHandler(
-  withRole(["ADMIN_IT"], async (req, context, authSession) => {
+  withRole(["ADMIN_IT", "ADMIN_SEKOLAH", "KEPALA_SEKOLAH"], async (req, context, authSession) => {
     const { id } = await context.params;
     const body = await req.json();
     const parsed = updateUserSchema.parse(body);
@@ -70,6 +70,18 @@ export const PATCH = withErrorHandler(
       existingUser.tenantId !== authSession.user.tenantId
     ) {
       throw new ForbiddenError("You do not have access to update this user");
+    }
+
+    // Protection: Non-ADMIN_IT cannot deactivate ADMIN_IT or ADMIN_SEKOLAH accounts
+    if (authSession.user.role !== "ADMIN_IT") {
+      if (existingUser.role === "ADMIN_IT" || existingUser.role === "ADMIN_SEKOLAH") {
+        throw new ForbiddenError("Anda tidak memiliki izin untuk mengelola akun administrator lain");
+      }
+    }
+
+    // Hindari menonaktifkan akun sendiri
+    if (parsed.isActive === false && existingUser.id === authSession.user.id) {
+      throw new ForbiddenError("Anda tidak dapat menonaktifkan akun Anda sendiri");
     }
 
     // Build update object with only provided fields
@@ -114,7 +126,7 @@ export const PATCH = withErrorHandler(
 
 // DELETE /api/v1/users/[id] — Soft delete user (set isActive = false)
 export const DELETE = withErrorHandler(
-  withRole(["ADMIN_IT"], async (req, context, authSession) => {
+  withRole(["ADMIN_IT", "ADMIN_SEKOLAH", "KEPALA_SEKOLAH"], async (req, context, authSession) => {
     const { id } = await context.params;
 
     // Fetch existing user
@@ -132,6 +144,10 @@ export const DELETE = withErrorHandler(
       existingUser.tenantId !== authSession.user.tenantId
     ) {
       throw new ForbiddenError("You do not have access to delete this user");
+    }
+
+    if (existingUser.id === authSession.user.id) {
+      throw new ForbiddenError("Anda tidak dapat menonaktifkan akun Anda sendiri");
     }
 
     // Soft delete: set isActive to false

@@ -102,7 +102,7 @@ export const GET = withErrorHandler(
 
 // POST /api/v1/users — Create a new user
 export const POST = withErrorHandler(
-  withRole(["ADMIN_IT"], async (req, context, authSession) => {
+  withRole(["ADMIN_IT", "ADMIN_SEKOLAH", "KEPALA_SEKOLAH"], async (req, context, authSession) => {
     const body = await req.json();
     const parsed = createUserSchema.parse(body);
 

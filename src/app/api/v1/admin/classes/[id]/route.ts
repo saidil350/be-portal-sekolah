@@ -20,12 +20,13 @@ export const PUT = withErrorHandler(
     }
 
     const body = await req.json();
-    const { name, program, homeroomTeacherId, isActive } = body;
+    const { name, program, homeroomTeacherId, isActive, level } = body;
 
     const updated = await db
       .update(classes)
       .set({
         name,
+        level: level !== undefined ? parseInt(level) : undefined,
         program: program !== undefined ? program : undefined,
         homeroomTeacherId: homeroomTeacherId !== undefined ? homeroomTeacherId : undefined,
         isActive: isActive !== undefined ? isActive : undefined,

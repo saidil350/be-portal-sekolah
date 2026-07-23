@@ -4,7 +4,7 @@ import { successResponse, errorResponse } from "@/utils/apiResponse";
 import { withRole } from "@/middleware/rbacMiddleware";
 import { db } from "@/db";
 import { classes, users } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, asc } from "drizzle-orm";
 
 export const GET = withErrorHandler(
   withRole(["ADMIN_IT", "KEPALA_SEKOLAH"], async (req, _context, authSession) => {
@@ -19,12 +19,14 @@ export const GET = withErrorHandler(
         name: classes.name,
         program: classes.program,
         isActive: classes.isActive,
+        level: classes.level,
         homeroomTeacherId: classes.homeroomTeacherId,
         homeroomTeacherName: users.name,
       })
       .from(classes)
       .leftJoin(users, eq(classes.homeroomTeacherId, users.id))
       .where(eq(classes.tenantId, tenantId))
+      .orderBy(asc(classes.level))
       .execute();
 
     return successResponse(list);
@@ -39,20 +41,23 @@ export const POST = withErrorHandler(
     }
 
     const body = await req.json();
-    const { name, program, homeroomTeacherId } = body;
+    const { name, program, homeroomTeacherId, level, isActive } = body;
 
-    if (!name) {
+    if (!name || !name.trim()) {
       return errorResponse("Nama kelas wajib diisi", 400);
     }
+
+    const parsedLevel = level !== undefined && !isNaN(parseInt(level, 10)) ? parseInt(level, 10) : 1;
 
     const newClass = await db
       .insert(classes)
       .values({
         tenantId,
-        name,
+        name: name.trim(),
+        level: parsedLevel,
         program: program || null,
         homeroomTeacherId: homeroomTeacherId || null,
-        isActive: true,
+        isActive: isActive !== undefined ? Boolean(isActive) : true,
       })
       .returning()
       .execute();
