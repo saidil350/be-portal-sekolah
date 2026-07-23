@@ -53,7 +53,7 @@ export const GET = withErrorHandler(
           )
         );
       } else {
-        conditions.push(eq(sppInvoices.status, status));
+        conditions.push(eq(sppInvoices.status, status as any));
       }
     }
 

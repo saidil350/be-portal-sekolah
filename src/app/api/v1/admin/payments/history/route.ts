@@ -37,14 +37,14 @@ export const GET = withErrorHandler(
     const currentMonth = currentDate.getMonth() + 1;
     const currentYear = currentDate.getFullYear();
 
+    const monthYearCondition = and(
+      eq(sppInvoices.month, currentMonth),
+      eq(sppInvoices.year, currentYear)
+    );
+
     const conditions = [
       eq(payments.tenantId, tenantId),
-      not(
-        and(
-          eq(sppInvoices.month, currentMonth),
-          eq(sppInvoices.year, currentYear)
-        )
-      )
+      ...(monthYearCondition ? [not(monthYearCondition)] : [])
     ];
     
     if (search) {
