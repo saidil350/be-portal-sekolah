@@ -333,4 +333,109 @@ export class PaymentService {
 
     return responseData;
   }
+
+  /**
+   * Sinkronisasi status pembayaran dengan Midtrans oleh Admin.
+   * Tidak membatasi kepemilikan userId (khusus admin).
+   * Memeriksa semua attempt pembayaran (orderId) yang pernah dibuat untuk invoice ini.
+   */
+  static async syncPayment(invoiceId: string) {
+    const rows = await db
+      .select({ payment: payments, invoice: sppInvoices })
+      .from(payments)
+      .innerJoin(sppInvoices, eq(sppInvoices.id, payments.invoiceId))
+      .where(eq(payments.invoiceId, invoiceId))
+      .orderBy(desc(payments.createdAt));
+
+    if (rows.length === 0) {
+      throw new Error("Belum ada transaksi pembayaran yang dibuat untuk invoice ini");
+    }
+
+    const invoice = rows[0].invoice;
+
+    // Idempoten jika sudah PAID di database
+    if (invoice.status === PAYMENT_STATUS.PAID) {
+      return {
+        status: PAYMENT_STATUS.PAID,
+        invoiceStatus: PAYMENT_STATUS.PAID,
+      };
+    }
+
+    let overallNewStatus: PaymentStatus = PAYMENT_STATUS.PENDING;
+    let foundPaid = false;
+    let paidOrderAttempt: typeof rows[0] | null = null;
+
+    // Cek semua attempt pembayaran untuk invoice ini
+    for (const row of rows) {
+      try {
+        const midtransStatus = await coreApi.transaction.status(row.payment.orderId);
+        const newStatus: PaymentStatus = mapMidtransStatus(
+          midtransStatus.transaction_status,
+          midtransStatus.fraud_status,
+          midtransStatus.payment_type
+        );
+
+        if (newStatus === PAYMENT_STATUS.PAID) {
+          foundPaid = true;
+          overallNewStatus = PAYMENT_STATUS.PAID;
+          paidOrderAttempt = row;
+        } else if (newStatus !== row.payment.status && !foundPaid) {
+          // Keep track of the latest non-paid status if not paid yet
+          overallNewStatus = newStatus;
+        }
+
+        // Update database untuk payment attempt ini jika status berubah
+        if (newStatus !== row.payment.status) {
+          await db.transaction(async (tx) => {
+            const updateData: any = {
+              status: newStatus,
+              updatedAt: new Date(),
+              paymentType: midtransStatus.payment_type,
+              midtransTransactionId: midtransStatus.transaction_id ?? row.payment.midtransTransactionId,
+              fraudStatus: midtransStatus.fraud_status,
+              channelResponseCode: String(midtransStatus.status_code ?? ""),
+              channelResponseMessage: midtransStatus.status_message,
+            };
+
+            if (newStatus === PAYMENT_STATUS.PAID) {
+              updateData.paidAt = new Date();
+            }
+
+            await tx.update(payments).set(updateData).where(eq(payments.id, row.payment.id));
+          });
+        }
+      } catch (err: any) {
+        // Abaikan error (seperti 404 dari Midtrans karena user tidak menyelesaikan pembuatan token snap)
+        console.warn(`Gagal cek status orderId ${row.payment.orderId}:`, err.message);
+      }
+    }
+
+    // Jika salah satu payment attempt bernilai PAID, update status invoice menjadi PAID
+    if (overallNewStatus === PAYMENT_STATUS.PAID) {
+      await db
+        .update(sppInvoices)
+        .set({ status: PAYMENT_STATUS.PAID, updatedAt: new Date() })
+        .where(eq(sppInvoices.id, invoiceId));
+      
+      const activeAttempt = paidOrderAttempt || rows[0];
+      await logAudit('PAYMENT_PAID', activeAttempt.payment.orderId, { amount: activeAttempt.payment.amount, via: 'admin_sync' });
+    } else if (([PAYMENT_STATUS.FAILED, PAYMENT_STATUS.EXPIRED, PAYMENT_STATUS.CANCELLED] as PaymentStatus[]).includes(overallNewStatus)) {
+      // Jika status terburuk gagal/cancel/expire dan tidak ada yang PAID
+      await db
+        .update(sppInvoices)
+        .set({ status: overallNewStatus, updatedAt: new Date() })
+        .where(eq(sppInvoices.id, invoiceId));
+      await logAudit(`PAYMENT_${overallNewStatus}`, rows[0].payment.orderId);
+    }
+
+    const refreshedInvoice = await db.query.sppInvoices.findFirst({
+      where: eq(sppInvoices.id, invoiceId),
+    });
+
+    return {
+      status: overallNewStatus,
+      invoiceStatus: refreshedInvoice?.status ?? invoice.status,
+    };
+  }
 }
+

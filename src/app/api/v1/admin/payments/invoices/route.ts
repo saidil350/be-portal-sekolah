@@ -4,7 +4,7 @@ import { successResponse, errorResponse } from "@/utils/apiResponse";
 import { withRole } from "@/middleware/rbacMiddleware";
 import { db } from "@/db";
 import { sppInvoices, users } from "@/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and, or, ilike, sql } from "drizzle-orm";
 
 export const GET = withErrorHandler(
   withRole(["ADMIN_IT", "KEPALA_SEKOLAH"], async (req, _context, authSession) => {
@@ -13,7 +13,41 @@ export const GET = withErrorHandler(
       return errorResponse("Tenant context missing", 400);
     }
     
-    console.log("Fetching invoices for tenant:", tenantId);
+    const { searchParams } = new URL(req.url);
+    const page = parseInt(searchParams.get("page") || "1", 10);
+    const limit = parseInt(searchParams.get("limit") || "100", 10); // default 100 for backward compat if frontend not yet updated
+    const search = searchParams.get("search") || "";
+    const status = searchParams.get("status") || "ALL";
+
+    const offset = (page - 1) * limit;
+    
+    // Base conditions
+    const conditions: any[] = [eq(sppInvoices.tenantId, tenantId)];
+
+    if (search) {
+      conditions.push(
+        or(
+          ilike(sppInvoices.invoiceNumber, `%${search}%`),
+          ilike(users.name, `%${search}%`)
+        )
+      );
+    }
+
+    if (status && status !== "ALL") {
+      if (status === "FAILED") {
+        conditions.push(
+          or(
+            eq(sppInvoices.status, "FAILED"),
+            eq(sppInvoices.status, "EXPIRED"),
+            eq(sppInvoices.status, "CANCELLED")
+          )
+        );
+      } else {
+        conditions.push(eq(sppInvoices.status, status));
+      }
+    }
+
+    const whereClause = and(...conditions);
 
     // Ambil data invoice beserta nama siswanya, diurutkan dari yang terbaru
     const list = await db
@@ -29,12 +63,28 @@ export const GET = withErrorHandler(
       })
       .from(sppInvoices)
       .leftJoin(users, eq(sppInvoices.studentId, users.id))
-      .where(eq(sppInvoices.tenantId, tenantId))
+      .where(whereClause)
       .orderBy(desc(sppInvoices.createdAt))
-      .limit(100);
+      .limit(limit)
+      .offset(offset);
 
-    console.log("Invoices returned from DB:", list);
-    return successResponse(list);
+    const [totalCountResult] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(sppInvoices)
+      .leftJoin(users, eq(sppInvoices.studentId, users.id))
+      .where(whereClause);
+
+    const total = Number(totalCountResult.count);
+
+    return successResponse({
+      items: list,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
   })
 );
 

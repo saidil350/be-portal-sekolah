@@ -122,81 +122,99 @@ export const GET = withErrorHandler(
     ];
 
     // 4. Breakdown Metode Pembayaran
-    const paymentMethodsQuery = await db
-      .select({
-        method: payments.paymentType,
-        count: sql<number>`COUNT(*)`,
-      })
-      .from(payments)
-      .where(
-        and(
-          eq(payments.tenantId, tenantId),
-          eq(payments.status, "PAID")
+    let metodePembayaran = [{ name: "LAINNYA", value: 0 }];
+    try {
+      const paymentMethodsQuery = await db
+        .select({
+          method: payments.paymentType,
+          count: sql<number>`COUNT(*)`,
+        })
+        .from(payments)
+        .where(
+          and(
+            eq(payments.tenantId, tenantId),
+            eq(payments.status, "PAID")
+          )
         )
-      )
-      .groupBy(payments.paymentType);
+        .groupBy(payments.paymentType);
 
-    const metodePembayaran = paymentMethodsQuery.map((pm) => ({
-      name: (pm.method || "Lainnya").toUpperCase(),
-      value: Number(pm.count || 0),
-    }));
+      metodePembayaran = paymentMethodsQuery.map((pm) => ({
+        name: (pm.method || "Lainnya").toUpperCase(),
+        value: Number(pm.count || 0),
+      }));
+    } catch (error) {
+      console.warn("Failed to load payment method breakdown for admin dashboard:", error);
+    }
 
     // 5. Tingkat Lunas per Kelas / Tarif
-    const gradeStatsQuery = await db
-      .select({
-        grade: sppTariffs.grade,
-        total: sql<number>`COUNT(${sppInvoices.id})`,
-        paid: sql<number>`COUNT(CASE WHEN ${sppInvoices.status} = 'PAID' THEN 1 END)`,
-      })
-      .from(sppInvoices)
-      .leftJoin(users, eq(sppInvoices.studentId, users.id))
-      .leftJoin(sppTariffs, eq(sppTariffs.studentId, users.id))
-      .where(eq(sppInvoices.tenantId, tenantId))
-      .groupBy(sppTariffs.grade);
+    let pembayaranKelas = [{ grade: "Keseluruhan", rate: successRate }];
+    try {
+      const gradeStatsQuery = await db
+        .select({
+          grade: sppTariffs.grade,
+          total: sql<number>`COUNT(${sppInvoices.id})`,
+          paid: sql<number>`COUNT(CASE WHEN ${sppInvoices.status} = 'PAID' THEN 1 END)`,
+        })
+        .from(sppInvoices)
+        .leftJoin(users, eq(sppInvoices.studentId, users.id))
+        .leftJoin(sppTariffs, eq(sppTariffs.studentId, users.id))
+        .where(eq(sppInvoices.tenantId, tenantId))
+        .groupBy(sppTariffs.grade);
 
-    let pembayaranKelas = gradeStatsQuery
-      .filter((g) => g.grade)
-      .map((g) => {
-        const tot = Number(g.total || 0);
-        const pd = Number(g.paid || 0);
-        return {
-          grade: `Kelas ${g.grade}`,
-          rate: tot > 0 ? Math.round((pd / tot) * 100) : 0,
-        };
-      });
+      const mappedGrades = gradeStatsQuery
+        .filter((g) => g.grade)
+        .map((g) => {
+          const tot = Number(g.total || 0);
+          const pd = Number(g.paid || 0);
+          return {
+            grade: `Kelas ${g.grade}`,
+            rate: tot > 0 ? Math.round((pd / tot) * 100) : 0,
+          };
+        });
 
-    if (pembayaranKelas.length === 0) {
-      pembayaranKelas = [
-        { grade: "Keseluruhan", rate: successRate }
-      ];
+      if (mappedGrades.length > 0) {
+        pembayaranKelas = mappedGrades;
+      }
+    } catch (error) {
+      console.warn("Failed to load class payment breakdown for admin dashboard:", error);
     }
 
     // 6. Top Outstanding Invoices per Siswa
-    const outstandingInvoicesQuery = await db
-      .select({
-        studentId: sppInvoices.studentId,
-        studentName: users.name,
-        monthsCount: sql<number>`COUNT(${sppInvoices.id})`,
-        totalAmount: sql<number>`COALESCE(SUM(${sppInvoices.amount}), 0)`,
-      })
-      .from(sppInvoices)
-      .innerJoin(users, eq(sppInvoices.studentId, users.id))
-      .where(
-        and(
-          eq(sppInvoices.tenantId, tenantId),
-          eq(sppInvoices.status, "PENDING")
+    let outstandingInvoices: Array<{
+      name: string;
+      grade: string;
+      amount: number;
+      months: number;
+    }> = [];
+    try {
+      const outstandingInvoicesQuery = await db
+        .select({
+          studentId: sppInvoices.studentId,
+          studentName: users.name,
+          monthsCount: sql<number>`COUNT(${sppInvoices.id})`,
+          totalAmount: sql<number>`COALESCE(SUM(${sppInvoices.amount}), 0)`,
+        })
+        .from(sppInvoices)
+        .innerJoin(users, eq(sppInvoices.studentId, users.id))
+        .where(
+          and(
+            eq(sppInvoices.tenantId, tenantId),
+            eq(sppInvoices.status, "PENDING")
+          )
         )
-      )
-      .groupBy(sppInvoices.studentId, users.name)
-      .orderBy(desc(sql`SUM(${sppInvoices.amount})`))
-      .limit(5);
+        .groupBy(sppInvoices.studentId, users.name)
+        .orderBy(desc(sql`SUM(${sppInvoices.amount})`))
+        .limit(5);
 
-    const outstandingInvoices = outstandingInvoicesQuery.map((row) => ({
-      name: row.studentName || "Siswa",
-      grade: "Siswa",
-      amount: Number(row.totalAmount || 0),
-      months: Number(row.monthsCount || 0),
-    }));
+      outstandingInvoices = outstandingInvoicesQuery.map((row) => ({
+        name: row.studentName || "Siswa",
+        grade: "Siswa",
+        amount: Number(row.totalAmount || 0),
+        months: Number(row.monthsCount || 0),
+      }));
+    } catch (error) {
+      console.warn("Failed to load outstanding invoices for admin dashboard:", error);
+    }
 
     return successResponse({
       kpiData,
@@ -224,4 +242,3 @@ export const OPTIONS = async () => {
     },
   });
 };
-
