@@ -7,7 +7,8 @@ const envSchema = z.object({
   BETTER_AUTH_SECRET: z.string().min(1, "BETTER_AUTH_SECRET harus diisi"),
   BETTER_AUTH_URL: z.string().url("Format BETTER_AUTH_URL tidak valid"),
   APP_URL: z.string().url("Format APP_URL tidak valid"),
-  WEBHOOK_URL: z.string().url("Format WEBHOOK_URL tidak valid").optional(), // Bisa diderivasi dari APP_URL jika diperlukan, tapi sebaiknya eksplicit
+  WEBHOOK_URL: z.string().url("Format WEBHOOK_URL tidak valid").optional(),
+  MIDTRANS_NOTIFICATION_URL: z.string().url("Format MIDTRANS_NOTIFICATION_URL tidak valid").optional(),
   MIDTRANS_SERVER_KEY: z.string().min(1, "MIDTRANS_SERVER_KEY harus diisi"),
   MIDTRANS_CLIENT_KEY: z.string().min(1, "MIDTRANS_CLIENT_KEY harus diisi"),
   MIDTRANS_IS_PRODUCTION: z
@@ -23,4 +24,9 @@ if (!_env.success) {
   throw new Error("Variabel environment tidak valid. Silakan cek file .env Anda.");
 }
 
-export const env = _env.data;
+const resolvedWebhookUrl = _env.data.WEBHOOK_URL || _env.data.MIDTRANS_NOTIFICATION_URL;
+
+export const env = {
+  ..._env.data,
+  WEBHOOK_URL: resolvedWebhookUrl,
+};

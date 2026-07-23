@@ -6,20 +6,25 @@ export async function logAudit(
   actionType: string,
   entityId: string,
   metadata?: any,
-  tx?: any
+  tx?: any,
+  tenantId?: string
 ) {
   try {
     const metaStr = metadata ? JSON.stringify(metadata) : undefined;
     
     // Log to Pino
-    logger.info({ actionType, entityId, metadata }, `[AUDIT] ${actionType}`);
+    logger.info({ actionType, entityId, tenantId, metadata }, `[AUDIT] ${actionType}`);
 
     // Log to DB
-    const insertObj = {
+    const insertObj: any = {
       actionType,
       entityId,
       metadata: metaStr,
     };
+
+    if (tenantId) {
+      insertObj.tenantId = tenantId;
+    }
 
     if (tx) {
       await tx.insert(auditLogs).values(insertObj);

@@ -124,10 +124,12 @@ export class PaymentService {
     }
 
     const snapResponse = await snap.createTransaction(snapParams);
+    const paymentNumber = `PAY-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
     await db.insert(payments).values({
       tenantId: invoice.tenantId,
       invoiceId: invoice.id,
+      paymentNumber: paymentNumber,
       orderId: orderId,
       amount: totalAmount,
       status: PAYMENT_STATUS.PENDING,
@@ -135,7 +137,7 @@ export class PaymentService {
       redirectUrl: snapResponse.redirect_url,
     });
 
-    await logAudit('PAYMENT_CREATED', orderId, { invoiceId: invoice.id, amount: invoice.amount, adminFee, totalAmount });
+    await logAudit('PAYMENT_CREATED', orderId, { invoiceId: invoice.id, amount: invoice.amount, adminFee, totalAmount, paymentNumber }, undefined, invoice.tenantId);
 
     return {
       orderId,
@@ -184,12 +186,12 @@ export class PaymentService {
       }
 
       if (payment.status === PAYMENT_STATUS.PAID) {
-        await logAudit('WEBHOOK_DUPLICATE_CALLBACK_PAID', notification.order_id, null, tx);
+        await logAudit('WEBHOOK_DUPLICATE_CALLBACK_PAID', notification.order_id, null, tx, payment.tenantId);
         return { success: true };
       }
 
       if (payment.amount !== parseInt(verified.gross_amount ?? notification.gross_amount)) {
-        await logAudit('WEBHOOK_INVALID_AMOUNT', notification.order_id, { expected: payment.amount, received: verified.gross_amount ?? notification.gross_amount }, tx);
+        await logAudit('WEBHOOK_INVALID_AMOUNT', notification.order_id, { expected: payment.amount, received: verified.gross_amount ?? notification.gross_amount }, tx, payment.tenantId);
         throw new Error("Invalid amount");
       }
 
@@ -227,9 +229,9 @@ export class PaymentService {
           .set({ status: PAYMENT_STATUS.PAID, updatedAt: new Date() })
           .where(eq(sppInvoices.id, payment.invoiceId));
           
-        await logAudit('PAYMENT_PAID', notification.order_id, { amount: payment.amount }, tx);
+        await logAudit('PAYMENT_PAID', notification.order_id, { amount: payment.amount }, tx, payment.tenantId);
       } else if (([PAYMENT_STATUS.FAILED, PAYMENT_STATUS.EXPIRED, PAYMENT_STATUS.CANCELLED, PAYMENT_STATUS.REFUNDED, PAYMENT_STATUS.CHARGEBACK] as PaymentStatus[]).includes(newStatus)) {
-        await logAudit(`PAYMENT_${newStatus}`, notification.order_id, null, tx);
+        await logAudit(`PAYMENT_${newStatus}`, notification.order_id, null, tx, payment.tenantId);
       }
 
       return { success: true };
@@ -238,14 +240,14 @@ export class PaymentService {
 
   /**
    * Cek status pembayaran langsung ke server Midtrans (jalur pull / on-demand).
-   * Dipakai endpoint /payments/status/:orderId agar frontend bisa polling walau webhook tidak sampai.
-   * Mengupdate payments + spp_invoices jika status berubah (idempoten).
-   * userId dipakai untuk memastikan order milik user yang meminta.
+   * Verifikasi kepemilikan transaksi berdasarkan userId siswa.
    */
   static async checkStatus(orderId: string, userId: string) {
-    // Ambil payment + invoice sekaligus untuk verifikasi kepemilikan
     const rows = await db
-      .select({ payment: payments, invoice: sppInvoices })
+      .select({
+        payment: payments,
+        invoice: sppInvoices,
+      })
       .from(payments)
       .innerJoin(sppInvoices, eq(sppInvoices.id, payments.invoiceId))
       .where(eq(payments.orderId, orderId))
@@ -261,14 +263,10 @@ export class PaymentService {
       throw new Error("Anda tidak berhak mengakses pembayaran ini");
     }
 
-    console.log("\n=====================");
-    console.log(`[RUNTIME DEBUG] Incoming orderId: ${orderId}`);
-    console.log(`[RUNTIME DEBUG] Status dari database sebelum update: ${row.payment.status}`);
+    logger.debug({ orderId, status: row.payment.status }, "Incoming order status check");
 
     // Idempoten: kalau sudah PAID, langsung kembalikan tanpa call Midtrans
     if (row.payment.status === PAYMENT_STATUS.PAID) {
-      console.log(`[RUNTIME DEBUG] Status sudah PAID, mengembalikan tanpa update Midtrans`);
-      console.log("=====================\n");
       return {
         status: PAYMENT_STATUS.PAID,
         invoiceStatus: row.invoice.status,
@@ -277,25 +275,16 @@ export class PaymentService {
 
     // Ambil status otoritatif dari server Midtrans
     const midtransStatus = await coreApi.transaction.status(orderId);
-    console.log(`[RUNTIME DEBUG] Response asli dari Midtrans:`, JSON.stringify(midtransStatus));
-    console.log(`[RUNTIME DEBUG] transaction_status: ${midtransStatus.transaction_status}`);
-    console.log(`[RUNTIME DEBUG] fraud_status: ${midtransStatus.fraud_status}`);
-    console.log(`[RUNTIME DEBUG] gross_amount: ${midtransStatus.gross_amount}`);
+    logger.debug({ orderId, midtransStatus }, "Response status dari Midtrans");
 
     const newStatus: PaymentStatus = mapMidtransStatus(
       midtransStatus.transaction_status,
       midtransStatus.fraud_status,
       midtransStatus.payment_type
     );
-    console.log(`[RUNTIME DEBUG] Status hasil mapping: ${newStatus}`);
-
-    let isDbUpdated = false;
-    let updatedRowsCount = 0;
 
     // Hanya update bila ada perubahan
     if (newStatus !== row.payment.status) {
-      isDbUpdated = true;
-      console.log(`[RUNTIME DEBUG] Apakah blok update database dijalankan: YA`);
       await db.transaction(async (tx) => {
         const updateData: any = {
           status: newStatus,
@@ -311,38 +300,27 @@ export class PaymentService {
           updateData.paidAt = new Date();
         }
 
-        const updatedPayments = await tx.update(payments).set(updateData).where(eq(payments.id, row.payment.id)).returning({ id: payments.id });
-        updatedRowsCount += updatedPayments.length;
+        await tx.update(payments).set(updateData).where(eq(payments.id, row.payment.id));
 
         if (newStatus === PAYMENT_STATUS.PAID) {
-          const updatedInvoices = await tx
+          await tx
             .update(sppInvoices)
             .set({ status: PAYMENT_STATUS.PAID, updatedAt: new Date() })
-            .where(eq(sppInvoices.id, row.invoice.id))
-            .returning({ id: sppInvoices.id });
-          updatedRowsCount += updatedInvoices.length;
-          await logAudit('PAYMENT_PAID', orderId, { amount: row.payment.amount, via: 'status_check' }, tx);
+            .where(eq(sppInvoices.id, row.invoice.id));
+          await logAudit('PAYMENT_PAID', orderId, { amount: row.payment.amount, via: 'status_check' }, tx, row.payment.tenantId);
         }
       });
-      console.log(`[RUNTIME DEBUG] Jumlah row yang di-update: ${updatedRowsCount}`);
-    } else {
-      console.log(`[RUNTIME DEBUG] Apakah blok update database dijalankan: TIDAK (status sama)`);
     }
 
     // Ambil status invoice terbaru setelah kemungkinan update
     const refreshedInvoice = await db.query.sppInvoices.findFirst({
       where: eq(sppInvoices.id, row.invoice.id),
     });
-    console.log(`[RUNTIME DEBUG] Status invoice setelah update: ${refreshedInvoice?.status ?? row.invoice.status}`);
 
-    const responseData = {
+    return {
       status: newStatus,
       invoiceStatus: refreshedInvoice?.status ?? row.invoice.status,
     };
-    console.log(`[RUNTIME DEBUG] Response yang dikirim (internal):`, JSON.stringify(responseData));
-    console.log("=====================\n");
-
-    return responseData;
   }
 
   /**

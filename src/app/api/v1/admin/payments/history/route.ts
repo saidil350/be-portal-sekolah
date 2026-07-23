@@ -4,7 +4,7 @@ import { successResponse, errorResponse } from "@/utils/apiResponse";
 import { withRole } from "@/middleware/rbacMiddleware";
 import { db } from "@/db";
 import { payments, sppInvoices, users } from "@/db/schema";
-import { eq, desc, and, ilike, sql, gte, lte, not } from "drizzle-orm";
+import { eq, desc, and, ilike, sql, gte, lte } from "drizzle-orm";
 import { z } from "zod";
 
 const querySchema = z.object({
@@ -33,18 +33,8 @@ export const GET = withErrorHandler(
     const { page, limit, search, status, method, startDate, endDate } = parsedQuery.data;
     const offset = (page - 1) * limit;
 
-    const currentDate = new Date();
-    const currentMonth = currentDate.getMonth() + 1;
-    const currentYear = currentDate.getFullYear();
-
-    const monthYearCondition = and(
-      eq(sppInvoices.month, currentMonth),
-      eq(sppInvoices.year, currentYear)
-    );
-
     const conditions = [
       eq(payments.tenantId, tenantId),
-      ...(monthYearCondition ? [not(monthYearCondition)] : [])
     ];
     
     if (search) {
