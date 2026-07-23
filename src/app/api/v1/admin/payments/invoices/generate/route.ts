@@ -3,7 +3,7 @@ import { withErrorHandler } from "@/utils/apiHandler";
 import { successResponse, errorResponse } from "@/utils/apiResponse";
 import { withRole } from "@/middleware/rbacMiddleware";
 import { db } from "@/db";
-import { sppInvoices, sppTariffs, users } from "@/db/schema";
+import { sppInvoices, sppTariffs, users, notifications } from "@/db/schema";
 import { eq, and, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { logAudit } from "@/lib/audit-logger";
@@ -110,9 +110,16 @@ export const POST = withErrorHandler(
       }
     }
 
-    // 4. Siapkan invoice baru yang perlu disisipkan
+    // 4. Siapkan invoice baru dan notifikasi untuk siswa
     const invoicesToInsert: Array<typeof sppInvoices.$inferInsert> = [];
+    const notificationsToInsert: Array<typeof notifications.$inferInsert> = [];
     const monthStr = String(targetMonth).padStart(2, "0");
+
+    const monthNames = [
+      "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+      "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+    ];
+    const monthName = monthNames[targetMonth - 1] || `Bulan ${targetMonth}`;
 
     for (const student of activeStudents) {
       if (existingStudentSet.has(student.id)) {
@@ -133,12 +140,28 @@ export const POST = withErrorHandler(
         status: "PENDING",
         dueDate,
       });
+
+      notificationsToInsert.push({
+        tenantId,
+        userId: student.id,
+        title: "Tagihan SPP Baru",
+        message: `Tagihan SPP ${monthName} ${targetYear} sebesar Rp ${amount.toLocaleString("id-ID")} telah diterbitkan. Silakan lakukan pembayaran sebelum jatuh tempo.`,
+        type: "PAYMENT",
+        link: "/student/payments",
+        isRead: false,
+      });
     }
 
     let generatedCount = 0;
     if (invoicesToInsert.length > 0) {
-      const inserted = await db.insert(sppInvoices).values(invoicesToInsert).returning({ id: sppInvoices.id });
-      generatedCount = inserted.length;
+      await db.transaction(async (tx) => {
+        const inserted = await tx.insert(sppInvoices).values(invoicesToInsert).returning({ id: sppInvoices.id });
+        generatedCount = inserted.length;
+
+        if (notificationsToInsert.length > 0) {
+          await tx.insert(notifications).values(notificationsToInsert);
+        }
+      });
     }
 
     const skippedCount = activeStudents.length - generatedCount;
