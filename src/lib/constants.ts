@@ -15,4 +15,6 @@ export type PaymentStatus = typeof PAYMENT_STATUS[keyof typeof PAYMENT_STATUS];
 export const PAYMENT_CONFIG = {
   EXPIRED_HOURS: 24,
   MAX_RETRIES: 2,
+  ADMIN_FEE_PERCENTAGE: 0.01, // 1% biaya administrasi
 };
+

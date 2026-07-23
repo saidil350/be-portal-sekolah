@@ -89,11 +89,13 @@ export class PaymentService {
     }
 
     const orderId = `SPP-${invoice.id.substring(0, 8)}-${Date.now()}`;
+    const adminFee = Math.round(invoice.amount * PAYMENT_CONFIG.ADMIN_FEE_PERCENTAGE);
+    const totalAmount = invoice.amount + adminFee;
 
     const snapParams: any = {
       transaction_details: {
         order_id: orderId,
-        gross_amount: invoice.amount,
+        gross_amount: totalAmount,
       },
       customer_details: {
         first_name: user?.name || "Siswa",
@@ -105,6 +107,12 @@ export class PaymentService {
           price: invoice.amount,
           quantity: 1,
           name: `SPP Bulan ${invoice.month} Tahun ${invoice.year}`,
+        },
+        {
+          id: `ADMIN-FEE`,
+          price: adminFee,
+          quantity: 1,
+          name: `Biaya Administrasi (1%)`,
         },
       ],
     };
@@ -121,18 +129,21 @@ export class PaymentService {
       tenantId: invoice.tenantId,
       invoiceId: invoice.id,
       orderId: orderId,
-      amount: invoice.amount,
+      amount: totalAmount,
       status: PAYMENT_STATUS.PENDING,
       snapToken: snapResponse.token,
       redirectUrl: snapResponse.redirect_url,
     });
 
-    await logAudit('PAYMENT_CREATED', orderId, { invoiceId: invoice.id, amount: invoice.amount });
+    await logAudit('PAYMENT_CREATED', orderId, { invoiceId: invoice.id, amount: invoice.amount, adminFee, totalAmount });
 
     return {
       orderId,
       token: snapResponse.token,
       redirectUrl: snapResponse.redirect_url,
+      amount: invoice.amount,
+      adminFee,
+      totalAmount,
     };
   }
 
