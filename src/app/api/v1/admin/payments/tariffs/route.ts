@@ -108,9 +108,9 @@ export const POST = withErrorHandler(
       isActive,
     }).returning();
 
-    await logAudit("TARIFF_CREATED", newTariff.id, { name, amount }, undefined);
+    await logAudit("TARIFF_CREATED", newTariff.id, newTariff, undefined);
 
-    return successResponse(newTariff, 201, "Tarif berhasil dibuat");
+    return successResponse(newTariff, "Tarif berhasil dibuat", 201);
   })
 );
 

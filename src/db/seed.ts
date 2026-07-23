@@ -62,7 +62,7 @@ async function main() {
 
   // ─── 2b. ACCOUNT RECORDS (for Better Auth credential login) ───
   console.log("🔑 Creating account records for Better Auth...");
-  const allUsers = [superAdmin, ...tenant1Users];
+  const allUsers = [...tenant1Users];
   const now = new Date();
   await db.insert(account).values(
     allUsers.map((u) => ({

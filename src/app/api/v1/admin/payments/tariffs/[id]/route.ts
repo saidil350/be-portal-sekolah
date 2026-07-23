@@ -49,7 +49,7 @@ export const PUT = withErrorHandler(
 
     await logAudit("TARIFF_UPDATED", updatedTariff.id, updateData, undefined);
 
-    return successResponse(updatedTariff, 200, "Tarif berhasil diperbarui");
+    return successResponse(updatedTariff, "Tarif berhasil diperbarui", 200);
   })
 );
 
@@ -71,7 +71,7 @@ export const DELETE = withErrorHandler(
 
     await logAudit("TARIFF_DELETED", deletedTariff.id, { name: deletedTariff.name }, undefined);
 
-    return successResponse(null, 200, "Tarif berhasil dihapus");
+    return successResponse(null, "Tarif berhasil dihapus", 200);
   })
 );
 

@@ -42,10 +42,10 @@ export const POST = withErrorHandler(
         .where(and(inArray(sppTariffs.id, ids), eq(sppTariffs.tenantId, tenantId)))
         .returning({ id: sppTariffs.id });
       updatedCount = result.length;
-      await logAudit(`TARIFF_BULK_${action}`, "bulk", { count: updatedCount, ids }, undefined);
+      await logAudit("TARIFF_BULK_UPDATED", tenantId, { updatedCount }, undefined);
     }
 
-    return successResponse({ count: updatedCount }, 200, `Berhasil memproses ${updatedCount} tarif`);
+    return successResponse({ count: updatedCount }, `Berhasil memproses ${updatedCount} tarif`, 200);
   })
 );
 
