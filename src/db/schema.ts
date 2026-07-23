@@ -5,3 +5,4 @@ export * from "./schemas/profiles";
 export * from "./schemas/attendance";
 export * from "./schemas/notifications";
 export * from "./schemas/payments";
+export * from "./schemas/classes";

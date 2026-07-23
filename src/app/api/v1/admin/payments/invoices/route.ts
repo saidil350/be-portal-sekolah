@@ -3,7 +3,7 @@ import { withErrorHandler } from "@/utils/apiHandler";
 import { successResponse, errorResponse } from "@/utils/apiResponse";
 import { withRole } from "@/middleware/rbacMiddleware";
 import { db } from "@/db";
-import { sppInvoices, users } from "@/db/schema";
+import { sppInvoices, users, payments } from "@/db/schema";
 import { eq, desc, and, or, ilike, sql } from "drizzle-orm";
 
 export const GET = withErrorHandler(
@@ -23,6 +23,16 @@ export const GET = withErrorHandler(
     
     // Base conditions
     const conditions: any[] = [eq(sppInvoices.tenantId, tenantId)];
+
+    const monthStr = searchParams.get("month");
+    const yearStr = searchParams.get("year");
+
+    if (monthStr && monthStr !== "ALL") {
+      conditions.push(eq(sppInvoices.month, parseInt(monthStr, 10)));
+    }
+    if (yearStr && yearStr !== "ALL") {
+      conditions.push(eq(sppInvoices.year, parseInt(yearStr, 10)));
+    }
 
     if (search) {
       conditions.push(
@@ -60,9 +70,12 @@ export const GET = withErrorHandler(
         status: sppInvoices.status,
         dueDate: sppInvoices.dueDate,
         studentName: users.name,
+        orderId: payments.orderId,
+        paymentMethod: payments.paymentMethod,
       })
       .from(sppInvoices)
       .leftJoin(users, eq(sppInvoices.studentId, users.id))
+      .leftJoin(payments, and(eq(payments.invoiceId, sppInvoices.id), eq(payments.status, "PAID")))
       .where(whereClause)
       .orderBy(desc(sppInvoices.createdAt))
       .limit(limit)
