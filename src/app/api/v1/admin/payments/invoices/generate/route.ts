@@ -127,8 +127,9 @@ export const POST = withErrorHandler(
       }
 
       const amount = studentTariffMap.get(student.id) ?? defaultTenantTariff;
-      const randomShort = Math.random().toString(36).substring(2, 7).toUpperCase();
-      const invoiceNumber = `INV/${targetYear}${monthStr}/${randomShort}`;
+      const studentShortId = student.id.split("-")[0].toUpperCase();
+      const uniqueHex = Math.floor(1000 + Math.random() * 9000);
+      const invoiceNumber = `INV/${targetYear}${monthStr}/${studentShortId}-${uniqueHex}`;
 
       invoicesToInsert.push({
         tenantId,

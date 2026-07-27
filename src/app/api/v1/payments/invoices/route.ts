@@ -69,41 +69,8 @@ export async function GET(req: NextRequest) {
       .limit(limit)
       .offset(offset);
 
-    let fetchedInvoices = await queryBuilder;
+    const fetchedInvoices = await queryBuilder;
 
-    // AUTO-SEED UNTUK TESTING MANUAL KETIKA DATA KOSONG
-    if (fetchedInvoices.length === 0 && page === 1 && status === "ALL" && !search) {
-      const now = new Date();
-      const user = await db.query.users.findFirst({
-        where: eq(users.id, userId)
-      });
-
-      if (user) {
-        await db.insert(sppInvoices).values([
-          {
-            tenantId: user.tenantId,
-            studentId: userId,
-            amount: 350000,
-            month: now.getMonth() + 1,
-            year: now.getFullYear(),
-            status: "PENDING",
-            dueDate: new Date(now.getFullYear(), now.getMonth(), 10),
-          },
-          {
-            tenantId: user.tenantId,
-            studentId: userId,
-            amount: 350000,
-            month: now.getMonth() === 0 ? 12 : now.getMonth(),
-            year: now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear(),
-            status: "PAID",
-            dueDate: new Date(now.getFullYear(), now.getMonth() - 1, 10),
-          }
-        ]);
-        
-        // Fetch ulang setelah auto-seed
-        fetchedInvoices = await queryBuilder;
-      }
-    }
 
     // Mapping ke format response
     const mappedInvoices = fetchedInvoices.map((inv) => ({

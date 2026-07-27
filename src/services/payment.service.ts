@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { sppInvoices, payments } from "../db/schema";
+import { sppInvoices, payments, notifications } from "../db/schema";
 import { users } from "../db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { snap, coreApi } from "../lib/midtrans";
@@ -222,6 +222,24 @@ export class PaymentService {
           .update(sppInvoices)
           .set({ status: PAYMENT_STATUS.PAID, updatedAt: new Date() })
           .where(eq(sppInvoices.id, payment.invoiceId));
+
+        const [invoiceDetail] = await tx
+          .select({ studentId: sppInvoices.studentId, month: sppInvoices.month, year: sppInvoices.year })
+          .from(sppInvoices)
+          .where(eq(sppInvoices.id, payment.invoiceId))
+          .limit(1);
+
+        if (invoiceDetail) {
+          await tx.insert(notifications).values({
+            tenantId: payment.tenantId,
+            userId: invoiceDetail.studentId,
+            title: "Pembayaran SPP Berhasil",
+            message: `Pembayaran SPP Anda untuk periode ${invoiceDetail.month}/${invoiceDetail.year} sebesar Rp ${payment.amount.toLocaleString("id-ID")} telah berhasil diterima.`,
+            type: "PAYMENT",
+            link: "/student/payments",
+            isRead: false,
+          });
+        }
           
         await logAudit('PAYMENT_PAID', notification.order_id, { amount: payment.amount }, tx, payment.tenantId);
       } else if (([PAYMENT_STATUS.FAILED, PAYMENT_STATUS.EXPIRED, PAYMENT_STATUS.CANCELLED, PAYMENT_STATUS.REFUNDED, PAYMENT_STATUS.CHARGEBACK] as PaymentStatus[]).includes(newStatus)) {
