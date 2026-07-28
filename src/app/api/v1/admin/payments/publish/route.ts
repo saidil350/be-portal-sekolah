@@ -118,13 +118,13 @@ export const POST = withErrorHandler(
       createdCount++;
     }
 
-    await logAudit({
-      tenantId,
-      userId: authSession.user.id,
-      userRole: authSession.user.role,
-      action: "PUBLISH_SPP_INVOICES",
-      module: "PAYMENT",
-      details: {
+    await logAudit(
+      "PUBLISH_SPP_INVOICES",
+      `SPP-${month}-${year}`,
+      {
+        userId: authSession.user.id,
+        userRole: authSession.user.role,
+        module: "PAYMENT",
         month,
         year,
         amount: defaultAmount,
@@ -132,7 +132,9 @@ export const POST = withErrorHandler(
         createdCount,
         skippedCount,
       },
-    });
+      undefined,
+      tenantId
+    );
 
     return successResponse({
       message: `Berhasil menerbitkan ${createdCount} invoice SPP. (${skippedCount} siswa disetujui/sudah pernah terbit)`,
