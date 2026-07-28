@@ -94,6 +94,19 @@ export class PaymentService {
       customer_details: {
         first_name: user?.name || "Siswa",
         email: user?.email || "student@example.com",
+        phone: user?.phone || undefined,
+        billing_address: {
+          first_name: user?.name || "Siswa",
+          email: user?.email || "student@example.com",
+          phone: user?.phone || undefined,
+          address: user?.address || undefined,
+        },
+        shipping_address: {
+          first_name: user?.name || "Siswa",
+          email: user?.email || "student@example.com",
+          phone: user?.phone || undefined,
+          address: user?.address || undefined,
+        },
       },
       item_details: [
         {
