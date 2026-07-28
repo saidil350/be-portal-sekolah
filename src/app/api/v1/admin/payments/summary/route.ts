@@ -203,7 +203,7 @@ export const GET = withErrorHandler(
           )
         )
         .groupBy(sppInvoices.studentId, users.name)
-        .orderBy(desc(sql`SUM(${sppInvoices.amount})`))
+        .orderBy(sql`SUM(${sppInvoices.amount}) DESC`)
         .limit(5);
 
       outstandingInvoices = outstandingInvoicesQuery.map((row) => ({

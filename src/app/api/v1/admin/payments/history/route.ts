@@ -64,7 +64,7 @@ export const GET = withErrorHandler(
     // Get Data
     const dataQuery = db.select({
       id: sql`COALESCE(${payments.id}, ${sppInvoices.id})`,
-      orderId: sql`COALESCE(${payments.orderId}, 'MANUAL-' || SUBSTRING(${sppInvoices.id} FROM 1 FOR 8))`,
+      orderId: sql`COALESCE(${payments.orderId}, 'MANUAL-' || SUBSTRING(${sppInvoices.id}::text FROM 1 FOR 8))`,
       paymentNumber: payments.paymentNumber,
       amount: sppInvoices.amount,
       paymentMethod: sql`COALESCE(${payments.paymentMethod}, 'Tunai / Manual')`,
@@ -83,7 +83,7 @@ export const GET = withErrorHandler(
     .leftJoin(payments, eq(sppInvoices.id, payments.invoiceId))
     .innerJoin(users, eq(sppInvoices.studentId, users.id))
     .where(whereClause)
-    .orderBy(desc(sql`COALESCE(${payments.createdAt}, ${sppInvoices.updatedAt})`))
+    .orderBy(desc(sppInvoices.createdAt))
     .limit(limit)
     .offset(offset);
 
