@@ -72,17 +72,27 @@ export async function GET(req: NextRequest) {
     const fetchedInvoices = await queryBuilder;
 
 
+    const MONTH_NAMES = [
+      "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+      "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+    ];
+
     // Mapping ke format response
-    const mappedInvoices = fetchedInvoices.map((inv) => ({
-      id: inv.id,
-      title: `SPP Bulan ${inv.month} Tahun ${inv.year}`,
-      month: `${inv.month} ${inv.year}`,
-      amount: inv.amount,
-      dueDate: inv.dueDate.toISOString().split('T')[0],
-      status: inv.status === 'PAID' ? 'PAID' : 'UNPAID',
-      paidAt: inv.status === 'PAID' ? inv.updatedAt.toISOString().split('T')[0] : undefined,
-      method: inv.paymentMethod || 'Online',
-    }));
+    const mappedInvoices = fetchedInvoices.map((inv) => {
+      const monthName = typeof inv.month === 'number' && inv.month >= 1 && inv.month <= 12 
+        ? MONTH_NAMES[inv.month - 1] 
+        : inv.month;
+      return {
+        id: inv.id,
+        title: `SPP Bulan ${monthName} Tahun ${inv.year}`,
+        month: `${monthName} ${inv.year}`,
+        amount: inv.amount,
+        dueDate: inv.dueDate ? inv.dueDate.toISOString().split('T')[0] : '',
+        status: inv.status === 'PAID' ? 'PAID' : 'UNPAID',
+        paidAt: inv.status === 'PAID' ? (inv.updatedAt ? inv.updatedAt.toISOString().split('T')[0] : new Date().toISOString().split('T')[0]) : undefined,
+        method: inv.status === 'PAID' ? (inv.paymentMethod || 'Tunai / System') : (inv.paymentMethod || undefined),
+      };
+    });
 
     // Sederhana count total untuk pagination
     const totalQuery = await db

@@ -34,7 +34,9 @@ export const GET = withErrorHandler(
     const offset = (page - 1) * limit;
 
     const conditions = [
-      eq(payments.tenantId, tenantId),
+      eq(sppInvoices.tenantId, tenantId),
+      // Hanya tampilkan yang lunas atau sudah ada attempt pembayaran
+      sql`(${sppInvoices.status} = 'PAID' OR ${payments.id} IS NOT NULL)`
     ];
     
     if (search) {
@@ -43,52 +45,52 @@ export const GET = withErrorHandler(
       );
     }
     if (status && status !== 'all') {
-      conditions.push(eq(payments.status, status as any));
+      conditions.push(sql`COALESCE(${payments.status}, ${sppInvoices.status}) = ${status}`);
     }
     if (method && method !== 'all') {
       conditions.push(eq(payments.paymentMethod, method));
     }
     if (startDate) {
-      conditions.push(gte(payments.createdAt, new Date(startDate)));
+      conditions.push(gte(sql`COALESCE(${payments.createdAt}, ${sppInvoices.updatedAt})`, new Date(startDate)));
     }
     if (endDate) {
       const end = new Date(endDate);
       end.setHours(23, 59, 59, 999);
-      conditions.push(lte(payments.createdAt, end));
+      conditions.push(lte(sql`COALESCE(${payments.createdAt}, ${sppInvoices.updatedAt})`, end));
     }
 
     const whereClause = and(...conditions);
 
     // Get Data
     const dataQuery = db.select({
-      id: payments.id,
-      orderId: payments.orderId,
+      id: sql`COALESCE(${payments.id}, ${sppInvoices.id})`,
+      orderId: sql`COALESCE(${payments.orderId}, 'MANUAL-' || SUBSTRING(${sppInvoices.id} FROM 1 FOR 8))`,
       paymentNumber: payments.paymentNumber,
-      amount: payments.amount,
-      paymentMethod: payments.paymentMethod,
-      paymentType: payments.paymentType,
-      status: payments.status,
+      amount: sppInvoices.amount,
+      paymentMethod: sql`COALESCE(${payments.paymentMethod}, 'Tunai / Manual')`,
+      paymentType: sql`COALESCE(${payments.paymentType}, 'offline')`,
+      status: sppInvoices.status,
       midtransTransactionId: payments.midtransTransactionId,
-      paidAt: payments.paidAt,
-      createdAt: payments.createdAt,
+      paidAt: sql`COALESCE(${payments.paidAt}, ${sppInvoices.updatedAt})`,
+      createdAt: sql`COALESCE(${payments.createdAt}, ${sppInvoices.updatedAt})`,
       invoiceNumber: sppInvoices.invoiceNumber,
       invoiceMonth: sppInvoices.month,
       invoiceYear: sppInvoices.year,
       studentName: users.name,
       studentId: users.id,
     })
-    .from(payments)
-    .innerJoin(sppInvoices, eq(payments.invoiceId, sppInvoices.id))
+    .from(sppInvoices)
+    .leftJoin(payments, eq(sppInvoices.id, payments.invoiceId))
     .innerJoin(users, eq(sppInvoices.studentId, users.id))
     .where(whereClause)
-    .orderBy(desc(payments.createdAt))
+    .orderBy(desc(sql`COALESCE(${payments.createdAt}, ${sppInvoices.updatedAt})`))
     .limit(limit)
     .offset(offset);
 
     // Get Total Count
     const countQuery = db.select({ count: sql<number>`count(*)` })
-    .from(payments)
-    .innerJoin(sppInvoices, eq(payments.invoiceId, sppInvoices.id))
+    .from(sppInvoices)
+    .leftJoin(payments, eq(sppInvoices.id, payments.invoiceId))
     .innerJoin(users, eq(sppInvoices.studentId, users.id))
     .where(whereClause);
 

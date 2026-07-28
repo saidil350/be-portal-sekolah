@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { db } from "./index";
-import { tenants, users, account, studentProfiles, teacherProfiles, attendanceRecords, notifications } from "./schema";
+import { tenants, users, account, studentProfiles, teacherProfiles, attendanceRecords, notifications, sppInvoices, payments, sppTariffs } from "./schema";
 import { hashPassword } from "@better-auth/utils/password";
 
 const PASSWORD = "Password123";
@@ -125,6 +125,81 @@ async function main() {
   }
 
 
+
+  // ─── 8. SPP INVOICES & PAYMENTS ───
+  console.log("💳 Creating SPP invoices and payments...");
+  
+  // Bersihkan data lama agar tidak menumpuk saat re-seed
+  await db.delete(payments);
+  await db.delete(sppInvoices);
+
+  const putraAditya = students[0]; // Putra Aditya
+  
+  if (putraAditya) {
+    const timeStr = Date.now().toString().substring(7);
+
+    // Mei 2026 (Bulan 5) - Lunas
+    const invMei = await db.insert(sppInvoices).values({
+      tenantId: tenant1.id,
+      studentId: putraAditya.id,
+      invoiceNumber: `INV-202605-${putraAditya.id.substring(0, 4)}-${timeStr}`,
+      amount: 500000,
+      month: 5,
+      year: 2026,
+      status: "PAID",
+      dueDate: new Date("2026-05-10"),
+    }).returning();
+
+    // Juni 2026 (Bulan 6) - Lunas
+    const invJuni = await db.insert(sppInvoices).values({
+      tenantId: tenant1.id,
+      studentId: putraAditya.id,
+      invoiceNumber: `INV-202606-${putraAditya.id.substring(0, 4)}-${timeStr}`,
+      amount: 500000,
+      month: 6,
+      year: 2026,
+      status: "PAID",
+      dueDate: new Date("2026-06-10"),
+    }).returning();
+
+    // Juli 2026 (Bulan 7 - Bulan Berjalan saat ini) - PENDING / Belum Lunas
+    const invJuli = await db.insert(sppInvoices).values({
+      tenantId: tenant1.id,
+      studentId: putraAditya.id,
+      invoiceNumber: `INV-202607-${putraAditya.id.substring(0, 4)}-${timeStr}`,
+      amount: 500000,
+      month: 7,
+      year: 2026,
+      status: "PENDING",
+      dueDate: new Date("2026-07-10"),
+    }).returning();
+
+    // Transaksi Pembayaran untuk tagihan yang LUNAS
+    await db.insert(payments).values([
+      {
+        tenantId: tenant1.id,
+        invoiceId: invMei[0].id,
+        paymentNumber: `PAY-202605-${timeStr}`,
+        orderId: `SPP-${invMei[0].id.substring(0, 8)}-1`,
+        amount: 505000,
+        paymentMethod: "gopay",
+        paymentType: "qris",
+        status: "PAID",
+        paidAt: new Date("2026-05-05"),
+      },
+      {
+        tenantId: tenant1.id,
+        invoiceId: invJuni[0].id,
+        paymentNumber: `PAY-202606-${timeStr}`,
+        orderId: `SPP-${invJuni[0].id.substring(0, 8)}-2`,
+        amount: 505000,
+        paymentMethod: "bank_transfer",
+        paymentType: "bca_va",
+        status: "PAID",
+        paidAt: new Date("2026-06-08"),
+      },
+    ]);
+  }
 
   // ─── 10. NOTIFICATIONS ───
   console.log("🔔 Creating notifications...");
