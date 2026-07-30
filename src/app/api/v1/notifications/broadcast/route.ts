@@ -15,6 +15,7 @@ function mapNotificationToResponse(n: any) {
     message: n.message,
     type: n.type,
     userId: n.userId,
+    targetRole: n.targetRole || null,
     isRead: n.isRead,
     readAt: n.readAt?.toISOString() || null,
     link: n.link,
@@ -38,6 +39,7 @@ export const POST = withErrorHandler(
         message: parsed.message,
         type: parsed.type,
         userId: parsed.userId || null,
+        targetRole: parsed.targetRole || null,
         link: parsed.link || null,
       })
       .returning();

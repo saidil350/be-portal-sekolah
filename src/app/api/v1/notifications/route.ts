@@ -15,6 +15,7 @@ function mapNotificationToResponse(n: any) {
     message: n.message,
     type: n.type,
     userId: n.userId,
+    targetRole: n.targetRole || null,
     isRead: n.isRead,
     readAt: n.readAt?.toISOString() || null,
     link: n.link,
@@ -30,6 +31,7 @@ export const GET = withErrorHandler(
 
     const tenantId = authSession.user.tenantId;
     const userId = authSession.user.id;
+    const userRole = authSession.user.role;
 
     const isReadFilter = searchParams.get("isRead");
     const typeFilter = searchParams.get("type");
@@ -38,7 +40,14 @@ export const GET = withErrorHandler(
       eq(notifications.tenantId, tenantId!),
       or(
         eq(notifications.userId, userId),
-        isNull(notifications.userId)
+        and(
+          isNull(notifications.userId),
+          or(
+            isNull(notifications.targetRole),
+            eq(notifications.targetRole, "ALL"),
+            userRole ? eq(notifications.targetRole, userRole) : sql`false`
+          )
+        )
       ),
     ];
 

@@ -9,6 +9,7 @@ export const notifications = pgTable("notifications", {
   message: text("message").notNull(),
   type: text("type").notNull(),
   userId: uuid("user_id").references(() => users.id),
+  targetRole: text("target_role"),
   isRead: boolean("is_read").default(false).notNull(),
   readAt: timestamp("read_at"),
   link: text("link"),

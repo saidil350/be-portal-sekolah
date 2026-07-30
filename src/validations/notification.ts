@@ -5,6 +5,7 @@ export const broadcastNotificationSchema = z.object({
   message: z.string().min(1, "Pesan wajib diisi"),
   type: z.enum(["INFO", "SUCCESS", "WARNING", "ALERT", "ATTENDANCE", "ANNOUNCEMENT", "PAYMENT", "ASSIGNMENT", "ACADEMIC"]),
   userId: z.string().uuid().optional(),
+  targetRole: z.string().optional(),
   link: z.string().optional(),
 });
 

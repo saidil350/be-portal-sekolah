@@ -6,12 +6,23 @@ import { db } from "@/db";
 import { notifications, users } from "@/db/schema";
 import { eq, sql, desc, and, isNull } from "drizzle-orm";
 
+function getAudienceLabel(userId: string | null, targetRole: string | null) {
+  if (userId) return "Spesifik User";
+  if (!targetRole || targetRole === "ALL") return "Semua Pengguna";
+  switch (targetRole) {
+    case "SISWA": return "Siswa";
+    case "GURU": return "Guru";
+    case "STAFF": return "Staff";
+    case "KEPALA_SEKOLAH": return "Kepala Sekolah";
+    case "ADMIN_IT": return "Admin IT";
+    default: return targetRole;
+  }
+}
+
 export const GET = withErrorHandler(
   withRole(["ADMIN_IT", "KEPALA_SEKOLAH"], async (req, context, authSession) => {
     const tenantId = authSession.user.tenantId!;
 
-    // We can fetch notifications that are sent by the system or to all users (broadcasts)
-    // For simplicity, let's fetch the latest notifications in the tenant
     const recentNotifications = await db
       .select({
         id: notifications.id,
@@ -19,6 +30,7 @@ export const GET = withErrorHandler(
         message: notifications.message,
         type: notifications.type,
         userId: notifications.userId,
+        targetRole: notifications.targetRole,
         createdAt: notifications.createdAt,
       })
       .from(notifications)
@@ -28,16 +40,17 @@ export const GET = withErrorHandler(
 
     const data = recentNotifications.map(n => ({
       title: n.title,
-      audience: n.userId ? 'Spesifik User' : 'Semua Pengguna',
+      audience: getAudienceLabel(n.userId, n.targetRole),
       channel: 'In-app',
-      sent: n.userId ? '1' : 'Semua',
+      sent: n.userId ? '1' : getAudienceLabel(n.userId, n.targetRole),
       status: 'Selesai',
       id: n.id,
+      targetRole: n.targetRole || 'ALL',
       createdAt: n.createdAt
     }));
 
     const stats = {
-      sentToday: data.length, // approximation
+      sentToday: data.length,
       activeTemplates: 6,
       failedSent: 0
     };
