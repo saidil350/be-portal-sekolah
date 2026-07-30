@@ -1,0 +1,162 @@
+import { NextRequest } from "next/server";
+import { withErrorHandler } from "@/utils/apiHandler";
+import { successResponse } from "@/utils/apiResponse";
+import { withAuth } from "@/middleware/auth";
+import { db } from "@/db";
+import { users, studentProfiles, teacherProfiles } from "@/db/schema";
+import { eq } from "drizzle-orm";
+import { updateProfileSchema } from "@/validations/profile";
+import { NotFoundError } from "@/utils/AppError";
+
+// GET /api/v1/profile — Fetch current authenticated user's full profile
+export const GET = withErrorHandler(
+  withAuth(async (req, context, authSession) => {
+    const userId = authSession.user.id;
+
+    const user = await db.query.users.findFirst({
+      where: eq(users.id, userId),
+    });
+
+    if (!user) {
+      throw new NotFoundError("Pengguna tidak ditemukan");
+    }
+
+    let studentProfile = null;
+    let teacherProfile = null;
+
+    if (user.role === "SISWA") {
+      studentProfile = await db.query.studentProfiles.findFirst({
+        where: eq(studentProfiles.userId, userId),
+      });
+    } else if (user.role === "GURU") {
+      teacherProfile = await db.query.teacherProfiles.findFirst({
+        where: eq(teacherProfiles.userId, userId),
+      });
+    }
+
+    const profileData = {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      tenantId: user.tenantId,
+      avatarUrl: user.image,
+      isActive: user.isActive,
+      studentProfile,
+      teacherProfile,
+      createdAt: user.createdAt.toISOString(),
+      updatedAt: user.updatedAt.toISOString(),
+    };
+
+    return successResponse(profileData, "Profil berhasil diambil");
+  })
+);
+
+// PATCH /api/v1/profile — Update current authenticated user's profile
+export const PATCH = withErrorHandler(
+  withAuth(async (req, context, authSession) => {
+    const userId = authSession.user.id;
+    const body = await req.json();
+    const parsed = updateProfileSchema.parse(body);
+
+    const user = await db.query.users.findFirst({
+      where: eq(users.id, userId),
+    });
+
+    if (!user) {
+      throw new NotFoundError("Pengguna tidak ditemukan");
+    }
+
+    // Update users table (name, image/avatar)
+    const userUpdate: Record<string, any> = { updatedAt: new Date() };
+    if (parsed.name !== undefined) userUpdate.name = parsed.name;
+    if (parsed.image !== undefined) userUpdate.image = parsed.image;
+
+    if (Object.keys(userUpdate).length > 1) {
+      await db.update(users).set(userUpdate).where(eq(users.id, userId));
+    }
+
+    // Update role specific profiles
+    if (user.role === "SISWA") {
+      const studentUpdate: Record<string, any> = { updatedAt: new Date() };
+      if (parsed.gender !== undefined) studentUpdate.gender = parsed.gender;
+      if (parsed.birthPlace !== undefined) studentUpdate.birthPlace = parsed.birthPlace;
+      if (parsed.birthDate !== undefined) studentUpdate.birthDate = parsed.birthDate;
+
+      if (Object.keys(studentUpdate).length > 1) {
+        const existing = await db.query.studentProfiles.findFirst({
+          where: eq(studentProfiles.userId, userId),
+        });
+
+        if (existing) {
+          await db
+            .update(studentProfiles)
+            .set(studentUpdate)
+            .where(eq(studentProfiles.userId, userId));
+        }
+      }
+    } else if (user.role === "GURU") {
+      const teacherUpdate: Record<string, any> = { updatedAt: new Date() };
+      if (parsed.gender !== undefined) teacherUpdate.gender = parsed.gender;
+
+      if (Object.keys(teacherUpdate).length > 1) {
+        const existing = await db.query.teacherProfiles.findFirst({
+          where: eq(teacherProfiles.userId, userId),
+        });
+
+        if (existing) {
+          await db
+            .update(teacherProfiles)
+            .set(teacherUpdate)
+            .where(eq(teacherProfiles.userId, userId));
+        }
+      }
+    }
+
+    // Return updated full profile
+    const updatedUser = await db.query.users.findFirst({
+      where: eq(users.id, userId),
+    });
+
+    let studentProfile = null;
+    let teacherProfile = null;
+
+    if (updatedUser?.role === "SISWA") {
+      studentProfile = await db.query.studentProfiles.findFirst({
+        where: eq(studentProfiles.userId, userId),
+      });
+    } else if (updatedUser?.role === "GURU") {
+      teacherProfile = await db.query.teacherProfiles.findFirst({
+        where: eq(teacherProfiles.userId, userId),
+      });
+    }
+
+    const responseData = {
+      id: updatedUser!.id,
+      email: updatedUser!.email,
+      name: updatedUser!.name,
+      role: updatedUser!.role,
+      tenantId: updatedUser!.tenantId,
+      avatarUrl: updatedUser!.image,
+      isActive: updatedUser!.isActive,
+      studentProfile,
+      teacherProfile,
+      createdAt: updatedUser!.createdAt.toISOString(),
+      updatedAt: updatedUser!.updatedAt.toISOString(),
+    };
+
+    return successResponse(responseData, "Profil berhasil diperbarui");
+  })
+);
+
+// OPTIONS handler for CORS
+export const OPTIONS = async () => {
+  return new Response(null, {
+    status: 204,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET,PATCH,OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Tenant-ID",
+    },
+  });
+};
