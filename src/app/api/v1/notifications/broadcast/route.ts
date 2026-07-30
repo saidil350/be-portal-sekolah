@@ -4,7 +4,8 @@ import { withRole } from "@/middleware/rbacMiddleware";
 import { successResponse } from "@/utils/apiResponse";
 import { broadcastNotificationSchema } from "@/validations/notification";
 import { db } from "@/db";
-import { notifications, tenants } from "@/db/schema";
+import { notifications, tenants, users } from "@/db/schema";
+import { eq } from "drizzle-orm";
 import { emitToUser, emitToTenant } from "@/websocket";
 import { BadRequestError, AppError } from "@/utils/AppError";
 
@@ -41,7 +42,10 @@ export const POST = withErrorHandler(
     const parsed = broadcastNotificationSchema.parse(body);
 
     const headerTenantId = req.headers.get("x-tenant-id");
-    let activeTenantId = authSession.user.tenantId || headerTenantId;
+    // Bagi role ADMIN_IT, jika header x-tenant-id dikirim, utamakan header tersebut
+    let activeTenantId = (authSession.user.role === "ADMIN_IT" && headerTenantId)
+      ? headerTenantId
+      : (authSession.user.tenantId || headerTenantId);
 
     if (!activeTenantId) {
       const firstTenant = await db.select({ id: tenants.id }).from(tenants).limit(1);
@@ -49,6 +53,30 @@ export const POST = withErrorHandler(
         activeTenantId = firstTenant[0].id;
       } else {
         throw new BadRequestError("Tenant ID tidak ditemukan pada sesi user, header, atau database.");
+      }
+    }
+
+    // Verifikasi apakah tenantId benar-benar ada di database
+    const existingTenant = await db
+      .select({ id: tenants.id })
+      .from(tenants)
+      .where(eq(tenants.id, activeTenantId))
+      .limit(1);
+
+    if (!existingTenant.length) {
+      throw new BadRequestError(`Tenant dengan ID "${activeTenantId}" tidak ditemukan.`);
+    }
+
+    // Verifikasi apakah userId ada jika dikirimkan
+    if (parsed.userId) {
+      const existingUser = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.id, parsed.userId))
+        .limit(1);
+
+      if (!existingUser.length) {
+        throw new BadRequestError(`User target dengan ID "${parsed.userId}" tidak ditemukan.`);
       }
     }
 
