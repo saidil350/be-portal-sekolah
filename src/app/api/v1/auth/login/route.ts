@@ -35,6 +35,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   try {
     const result = await auth.api.signInEmail({
       body: { email, password },
+      headers: req.headers,
     });
 
     if (!result) {
@@ -102,11 +103,20 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   }
 });
 
-export const OPTIONS = async () => {
+export const OPTIONS = async (req: NextRequest) => {
+  const origin = req.headers.get("origin");
+  const allowedOrigins = [
+    process.env.APP_URL,
+    "https://fe-portal-sekolah.vercel.app",
+    "http://localhost:3000"
+  ].filter(Boolean) as string[];
+
+  const allowedOrigin = origin && allowedOrigins.includes(origin) ? origin : allowedOrigins[0] || "http://localhost:3000";
+
   return new Response(null, {
     status: 204,
     headers: {
-      "Access-Control-Allow-Origin": process.env.APP_URL || "http://localhost:3000",
+      "Access-Control-Allow-Origin": allowedOrigin,
       "Access-Control-Allow-Methods": "POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Tenant-ID",
       "Access-Control-Allow-Credentials": "true",
