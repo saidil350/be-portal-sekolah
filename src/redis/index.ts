@@ -1,12 +1,19 @@
 import Redis from 'ioredis';
 import { logger } from '@/logging';
 
-const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
+// Redis dinonaktifkan - tidak dipakai di flow pembayaran maupun fitur lainnya.
+// Uncomment dan set REDIS_URL di .env jika ingin mengaktifkan kembali.
+const redisUrl = process.env.REDIS_URL;
 
 class RedisClient {
-  private static instance: Redis;
+  private static instance: Redis | null = null;
 
-  public static getInstance(): Redis {
+  public static getInstance(): Redis | null {
+    // Jika REDIS_URL tidak diset, jangan coba konek
+    if (!redisUrl) {
+      return null;
+    }
+
     if (!RedisClient.instance) {
       RedisClient.instance = new Redis(redisUrl, {
         retryStrategy(times) {
@@ -29,3 +36,4 @@ class RedisClient {
 }
 
 export const redis = RedisClient.getInstance();
+
