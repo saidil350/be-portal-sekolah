@@ -7,6 +7,25 @@ import { sppInvoices, users, sppTariffs, notifications } from "@/db/schema";
 import { eq, and, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { logAudit } from "@/lib/audit-logger";
+import { createSPPPaymentPublishedNotification } from "@/lib/notification-templates";
+import { emitToUser } from "@/websocket";
+
+function mapNotificationToResponse(n: any) {
+  return {
+    id: n.id,
+    tenantId: n.tenantId,
+    title: n.title,
+    message: n.message,
+    type: n.type,
+    userId: n.userId,
+    isRead: n.isRead,
+    readAt: n.readAt?.toISOString() || null,
+    link: n.link,
+    createdAt: n.createdAt.toISOString(),
+    updatedAt: n.updatedAt.toISOString(),
+  };
+}
+
 
 const publishSchema = z.object({
   month: z.number().min(1).max(12),
@@ -110,16 +129,28 @@ export const POST = withErrorHandler(
         status: "PENDING",
       });
 
-      // Kirim Notifikasi Sistem ke Siswa
-      const formattedAmount = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(defaultAmount);
-      await db.insert(notifications).values({
+      // Kirim Notifikasi Sistem ke Siswa via Template & Realtime Socket
+      const notifData = createSPPPaymentPublishedNotification({
+        studentName: student.name,
+        month,
+        year,
+        amount: defaultAmount,
+        dueDate: invoiceDueDate,
+      });
+
+      const [insertedNotif] = await db.insert(notifications).values({
         tenantId,
         userId: student.id,
-        title: `Tagihan SPP ${monthLabel} ${year}`,
-        message: `Tagihan SPP Anda untuk bulan ${monthLabel} ${year} sebesar ${formattedAmount} telah diterbitkan dan dapat dilakukan pembayaran melalui portal.`,
-        type: "BILLING",
+        title: notifData.title,
+        message: notifData.message,
+        type: notifData.type,
+        link: notifData.link,
         isRead: false,
-      });
+      }).returning();
+
+      if (insertedNotif) {
+        emitToUser(student.id, "notification.created", mapNotificationToResponse(insertedNotif));
+      }
 
       createdCount++;
     }

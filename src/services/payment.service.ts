@@ -8,6 +8,8 @@ import { logAudit } from "../lib/audit-logger";
 import { env } from "../validations/env";
 import { logger } from "../lib/logger";
 import { PAYMENT_STATUS, PAYMENT_CONFIG, PaymentStatus } from "../lib/constants";
+import { createSPPPaymentSuccessNotification } from "../lib/notification-templates";
+import { emitToUser } from "../websocket";
 
 // Metode pembayaran yang langsung sukses tanpa fraud_status (QRIS, e-wallet, direct debit).
 // Pada metode ini Midtrans sering mengirim transaction_status "capture" tanpa fraud_status,
@@ -243,15 +245,38 @@ export class PaymentService {
           .limit(1);
 
         if (invoiceDetail) {
-          await tx.insert(notifications).values({
+          const notifData = createSPPPaymentSuccessNotification({
+            month: invoiceDetail.month,
+            year: invoiceDetail.year,
+            amount: payment.amount,
+            invoiceNumber: payment.orderId,
+          });
+
+          const [insertedNotif] = await tx.insert(notifications).values({
             tenantId: payment.tenantId,
             userId: invoiceDetail.studentId,
-            title: "Pembayaran SPP Berhasil",
-            message: `Pembayaran SPP Anda untuk periode ${invoiceDetail.month}/${invoiceDetail.year} sebesar Rp ${payment.amount.toLocaleString("id-ID")} telah berhasil diterima.`,
-            type: "PAYMENT",
-            link: "/student/payments",
+            title: notifData.title,
+            message: notifData.message,
+            type: notifData.type,
+            link: notifData.link,
             isRead: false,
-          });
+          }).returning();
+
+          if (insertedNotif) {
+            emitToUser(invoiceDetail.studentId, "notification.created", {
+              id: insertedNotif.id,
+              tenantId: insertedNotif.tenantId,
+              title: insertedNotif.title,
+              message: insertedNotif.message,
+              type: insertedNotif.type,
+              userId: insertedNotif.userId,
+              isRead: insertedNotif.isRead,
+              readAt: insertedNotif.readAt?.toISOString() || null,
+              link: insertedNotif.link,
+              createdAt: insertedNotif.createdAt.toISOString(),
+              updatedAt: insertedNotif.updatedAt.toISOString(),
+            });
+          }
         }
           
         await logAudit('PAYMENT_PAID', notification.order_id, { amount: payment.amount }, tx, payment.tenantId);
