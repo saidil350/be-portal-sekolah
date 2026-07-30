@@ -38,30 +38,35 @@ export const GET = withErrorHandler(
       }
 
       // Ambil riwayat kenaikan kelas dari tabel student_class_history
-      const historyRows = await db
-        .select({
-          id: studentClassHistory.id,
-          academicYear: academicYears.name,
-          semester: academicYears.semester,
-          className: classes.name,
-          level: classes.level,
-          status: studentClassHistory.status,
-          createdAt: studentClassHistory.createdAt,
-        })
-        .from(studentClassHistory)
-        .leftJoin(classes, eq(studentClassHistory.classId, classes.id))
-        .leftJoin(academicYears, eq(studentClassHistory.academicYearId, academicYears.id))
-        .where(eq(studentClassHistory.studentId, userId))
-        .orderBy(desc(studentClassHistory.createdAt));
+      try {
+        const historyRows = await db
+          .select({
+            id: studentClassHistory.id,
+            academicYear: academicYears.name,
+            semester: academicYears.semester,
+            className: classes.name,
+            level: classes.level,
+            status: studentClassHistory.status,
+            createdAt: studentClassHistory.createdAt,
+          })
+          .from(studentClassHistory)
+          .leftJoin(classes, eq(studentClassHistory.classId, classes.id))
+          .leftJoin(academicYears, eq(studentClassHistory.academicYearId, academicYears.id))
+          .where(eq(studentClassHistory.studentId, userId))
+          .orderBy(desc(studentClassHistory.createdAt));
 
-      academicHistory = historyRows.map((h, idx) => ({
-        academicYear: h.academicYear || "2025/2026",
-        grade: h.level ? `Kelas ${h.level}` : "Kelas",
-        className: h.className || "Kelas",
-        semester: `Semester ${h.semester || 1}`,
-        status: h.status === "PROMOTED" ? "Naik Kelas" : h.status === "GRADUATED" ? "Lulus" : "Tinggal Kelas",
-        isCurrent: idx === 0,
-      }));
+        academicHistory = historyRows.map((h, idx) => ({
+          academicYear: h.academicYear || "2025/2026",
+          grade: h.level ? `Kelas ${h.level}` : "Kelas",
+          className: h.className || "Kelas",
+          semester: `Semester ${h.semester || 1}`,
+          status: h.status === "PROMOTED" ? "Naik Kelas" : h.status === "GRADUATED" ? "Lulus" : "Tinggal Kelas",
+          isCurrent: idx === 0,
+        }));
+      } catch (err) {
+        console.warn("Notice: student_class_history table missing or query error:", err);
+        academicHistory = [];
+      }
     } else if (user.role === "GURU") {
       teacherProfile = await db.query.teacherProfiles.findFirst({
         where: eq(teacherProfiles.userId, userId),
