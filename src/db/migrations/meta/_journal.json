@@ -36,6 +36,13 @@
       "when": 1785207067271,
       "tag": "0004_careless_spencer_smythe",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1785436359811,
+      "tag": "0005_giant_bastion",
+      "breakpoints": true
     }
   ]
 }
