@@ -41,6 +41,8 @@ export const GET = withErrorHandler(
       role: user.role,
       tenantId: user.tenantId,
       avatarUrl: user.image,
+      phone: user.phone,
+      address: user.address,
       isActive: user.isActive,
       studentProfile,
       teacherProfile,
@@ -67,10 +69,12 @@ export const PATCH = withErrorHandler(
       throw new NotFoundError("Pengguna tidak ditemukan");
     }
 
-    // Update users table (name, image/avatar)
+    // Update users table (name, image/avatar, phone, address)
     const userUpdate: Record<string, any> = { updatedAt: new Date() };
     if (parsed.name !== undefined) userUpdate.name = parsed.name;
     if (parsed.image !== undefined) userUpdate.image = parsed.image;
+    if (parsed.phone !== undefined) userUpdate.phone = parsed.phone;
+    if (parsed.address !== undefined) userUpdate.address = parsed.address;
 
     if (Object.keys(userUpdate).length > 1) {
       await db.update(users).set(userUpdate).where(eq(users.id, userId));
@@ -82,6 +86,14 @@ export const PATCH = withErrorHandler(
       if (parsed.gender !== undefined) studentUpdate.gender = parsed.gender;
       if (parsed.birthPlace !== undefined) studentUpdate.birthPlace = parsed.birthPlace;
       if (parsed.birthDate !== undefined) studentUpdate.birthDate = parsed.birthDate;
+      if (parsed.nik !== undefined) studentUpdate.nik = parsed.nik;
+      if (parsed.religion !== undefined) studentUpdate.religion = parsed.religion;
+      if (parsed.fatherName !== undefined) studentUpdate.fatherName = parsed.fatherName;
+      if (parsed.fatherOccupation !== undefined) studentUpdate.fatherOccupation = parsed.fatherOccupation;
+      if (parsed.motherName !== undefined) studentUpdate.motherName = parsed.motherName;
+      if (parsed.motherOccupation !== undefined) studentUpdate.motherOccupation = parsed.motherOccupation;
+      if (parsed.guardianName !== undefined) studentUpdate.guardianName = parsed.guardianName;
+      if (parsed.guardianPhone !== undefined) studentUpdate.guardianPhone = parsed.guardianPhone;
 
       if (Object.keys(studentUpdate).length > 1) {
         const existing = await db.query.studentProfiles.findFirst({
@@ -138,6 +150,8 @@ export const PATCH = withErrorHandler(
       role: updatedUser!.role,
       tenantId: updatedUser!.tenantId,
       avatarUrl: updatedUser!.image,
+      phone: updatedUser!.phone,
+      address: updatedUser!.address,
       isActive: updatedUser!.isActive,
       studentProfile,
       teacherProfile,

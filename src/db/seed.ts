@@ -2,11 +2,25 @@ import "dotenv/config";
 import { db } from "./index";
 import { tenants, users, account, studentProfiles, teacherProfiles, attendanceRecords, notifications, sppInvoices, payments, sppTariffs } from "./schema";
 import { hashPassword } from "@better-auth/utils/password";
+import { eq, sql } from "drizzle-orm";
 
 const PASSWORD = "Password123";
 
 async function main() {
   console.log("🌱 Memulai seeding database...");
+
+  // Ensure student_profiles columns exist
+  await db.execute(sql`
+    ALTER TABLE student_profiles 
+    ADD COLUMN IF NOT EXISTS nik text,
+    ADD COLUMN IF NOT EXISTS religion text,
+    ADD COLUMN IF NOT EXISTS father_name text,
+    ADD COLUMN IF NOT EXISTS father_occupation text,
+    ADD COLUMN IF NOT EXISTS mother_name text,
+    ADD COLUMN IF NOT EXISTS mother_occupation text,
+    ADD COLUMN IF NOT EXISTS guardian_name text,
+    ADD COLUMN IF NOT EXISTS guardian_phone text;
+  `);
 
   // Hash password using Better Auth's scrypt hasher
   const hashedPassword = await hashPassword(PASSWORD);
@@ -38,16 +52,16 @@ async function main() {
     { tenantId: tenant1.id, name: "Wahyu Nugroho", email: "wahyu.nugroho@sekolah1.sch.id", password: hashedPassword, role: "GURU", emailVerified: true, isActive: true },
 
     // 10 Siswa
-    { tenantId: tenant1.id, name: "Putra Aditya", email: "siswa.putra@sekolah1.sch.id", password: hashedPassword, role: "SISWA", emailVerified: true, isActive: true },
-    { tenantId: tenant1.id, name: "Adit Pratama", email: "adit.pratama@sekolah1.sch.id", password: hashedPassword, role: "SISWA", emailVerified: true, isActive: true },
-    { tenantId: tenant1.id, name: "Lulu Nurhaliza", email: "lulu.nurhaliza@sekolah1.sch.id", password: hashedPassword, role: "SISWA", emailVerified: true, isActive: true },
-    { tenantId: tenant1.id, name: "Rendra Setiawan", email: "rendra.setiawan@sekolah1.sch.id", password: hashedPassword, role: "SISWA", emailVerified: true, isActive: true },
-    { tenantId: tenant1.id, name: "Rian Hidayat", email: "rian.hidayat@sekolah1.sch.id", password: hashedPassword, role: "SISWA", emailVerified: true, isActive: true },
-    { tenantId: tenant1.id, name: "Maya Sari", email: "maya.sari@sekolah1.sch.id", password: hashedPassword, role: "SISWA", emailVerified: true, isActive: true },
-    { tenantId: tenant1.id, name: "Fajar Dwi", email: "fajar.dwi@sekolah1.sch.id", password: hashedPassword, role: "SISWA", emailVerified: true, isActive: true },
-    { tenantId: tenant1.id, name: "Nadia Putri", email: "nadia.putri@sekolah1.sch.id", password: hashedPassword, role: "SISWA", emailVerified: true, isActive: true },
-    { tenantId: tenant1.id, name: "Bayu Pratama", email: "bayu.pratama@sekolah1.sch.id", password: hashedPassword, role: "SISWA", emailVerified: true, isActive: true },
-    { tenantId: tenant1.id, name: "Lia Lestari", email: "lia.lestari@sekolah1.sch.id", password: hashedPassword, role: "SISWA", emailVerified: true, isActive: true },
+    { tenantId: tenant1.id, name: "Putra Aditya", email: "siswa.putra@sekolah1.sch.id", password: hashedPassword, role: "SISWA", phone: "0812-9876-5432", address: "Jl. Kebon Jeruk Raya No. 45, Kebayoran Lama, Jakarta Selatan", emailVerified: true, isActive: true },
+    { tenantId: tenant1.id, name: "Adit Pratama", email: "adit.pratama@sekolah1.sch.id", password: hashedPassword, role: "SISWA", phone: "0857-1122-3344", address: "Jl. Budi Utomo No. 12, Menteng, Jakarta Pusat", emailVerified: true, isActive: true },
+    { tenantId: tenant1.id, name: "Lulu Nurhaliza", email: "lulu.nurhaliza@sekolah1.sch.id", password: hashedPassword, role: "SISWA", phone: "0813-4455-6677", address: "Jl. Tebet Barat Dalam No. 8, Tebet, Jakarta Selatan", emailVerified: true, isActive: true },
+    { tenantId: tenant1.id, name: "Rendra Setiawan", email: "rendra.setiawan@sekolah1.sch.id", password: hashedPassword, role: "SISWA", phone: "0818-7788-9900", address: "Jl. Kemang Raya No. 15, Mampang Prapatan, Jakarta Selatan", emailVerified: true, isActive: true },
+    { tenantId: tenant1.id, name: "Rian Hidayat", email: "rian.hidayat@sekolah1.sch.id", password: hashedPassword, role: "SISWA", phone: "0821-3344-5566", address: "Jl. Palmerah Barat No. 27, Palmerah, Jakarta Barat", emailVerified: true, isActive: true },
+    { tenantId: tenant1.id, name: "Maya Sari", email: "maya.sari@sekolah1.sch.id", password: hashedPassword, role: "SISWA", phone: "0852-6677-8899", address: "Jl. Senopati No. 50, Kebayoran Baru, Jakarta Selatan", emailVerified: true, isActive: true },
+    { tenantId: tenant1.id, name: "Fajar Dwi", email: "fajar.dwi@sekolah1.sch.id", password: hashedPassword, role: "SISWA", phone: "0878-9900-1122", address: "Jl. Mangga Dua Raya No. 10, Sawah Besar, Jakarta Pusat", emailVerified: true, isActive: true },
+    { tenantId: tenant1.id, name: "Nadia Putri", email: "nadia.putri@sekolah1.sch.id", password: hashedPassword, role: "SISWA", phone: "0819-2233-4455", address: "Jl. Cikini Raya No. 33, Menteng, Jakarta Pusat", emailVerified: true, isActive: true },
+    { tenantId: tenant1.id, name: "Bayu Pratama", email: "bayu.pratama@sekolah1.sch.id", password: hashedPassword, role: "SISWA", phone: "0838-5566-7788", address: "Jl. Gajah Mada No. 100, Taman Sari, Jakarta Barat", emailVerified: true, isActive: true },
+    { tenantId: tenant1.id, name: "Lia Lestari", email: "lia.lestari@sekolah1.sch.id", password: hashedPassword, role: "SISWA", phone: "0811-6677-8899", address: "Jl. Prapanca Raya No. 20, Kebayoran Baru, Jakarta Selatan", emailVerified: true, isActive: true },
   ]).onConflictDoNothing().returning();
 
   const tenant1Users = await db.select().from(users);
@@ -58,7 +72,169 @@ async function main() {
   const guru2 = tenant1Users[3]; // Siti
   const guru3 = tenant1Users[4]; // Wahyu
   const staff1 = tenant1Users[5];
-  const students = tenant1Users.slice(6); // 10 students
+  const students = tenant1Users.filter((u) => u.role === "SISWA"); // All 10 students
+
+  // Map student email directly to dummy profile details to ensure accurate assignment
+  const studentMap: Record<string, any> = {
+    "siswa.putra@sekolah1.sch.id": {
+      phone: "0812-9876-5432",
+      address: "Jl. Kebon Jeruk Raya No. 45, Kebayoran Lama, Jakarta Selatan",
+      nik: "3174011505080001",
+      birthPlace: "Jakarta",
+      birthDate: "2008-05-15",
+      gender: "L" as const,
+      religion: "Islam",
+      fatherName: "Bambang Aditya",
+      fatherOccupation: "Wiraswasta",
+      motherName: "Dewi Rahmawati",
+      motherOccupation: "Ibu Rumah Tangga",
+      guardianName: "Bambang Aditya",
+      guardianPhone: "0812-9876-5432",
+    },
+    "adit.pratama@sekolah1.sch.id": {
+      phone: "0857-1122-3344",
+      address: "Jl. Budi Utomo No. 12, Menteng, Jakarta Pusat",
+      nik: "3171021008080002",
+      birthPlace: "Jakarta",
+      birthDate: "2008-08-10",
+      gender: "L" as const,
+      religion: "Islam",
+      fatherName: "Hendra Pratama",
+      fatherOccupation: "Pegawai Negeri Sipil (PNS)",
+      motherName: "Siti Aminah",
+      motherOccupation: "Guru",
+      guardianName: "Hendra Pratama",
+      guardianPhone: "0857-1122-3344",
+    },
+    "lulu.nurhaliza@sekolah1.sch.id": {
+      phone: "0813-4455-6677",
+      address: "Jl. Tebet Barat Dalam No. 8, Tebet, Jakarta Selatan",
+      nik: "3174042211080003",
+      birthPlace: "Bandung",
+      birthDate: "2008-11-22",
+      gender: "P" as const,
+      religion: "Islam",
+      fatherName: "Ahmad Hidayat",
+      fatherOccupation: "Arsitek",
+      motherName: "Rina Nurhaliza",
+      motherOccupation: "Karyawan Swasta",
+      guardianName: "Ahmad Hidayat",
+      guardianPhone: "0813-4455-6677",
+    },
+    "rendra.setiawan@sekolah1.sch.id": {
+      phone: "0818-7788-9900",
+      address: "Jl. Kemang Raya No. 15, Mampang Prapatan, Jakarta Selatan",
+      nik: "3174030503080004",
+      birthPlace: "Surabaya",
+      birthDate: "2008-03-05",
+      gender: "L" as const,
+      religion: "Kristen",
+      fatherName: "Dedi Setiawan",
+      fatherOccupation: "Pengusaha",
+      motherName: "Maria Susanti",
+      motherOccupation: "Dokter",
+      guardianName: "Dedi Setiawan",
+      guardianPhone: "0818-7788-9900",
+    },
+    "rian.hidayat@sekolah1.sch.id": {
+      phone: "0821-3344-5566",
+      address: "Jl. Palmerah Barat No. 27, Palmerah, Jakarta Barat",
+      nik: "3173051407080005",
+      birthPlace: "Bogor",
+      birthDate: "2008-07-14",
+      gender: "L" as const,
+      religion: "Islam",
+      fatherName: "Syaiful Hidayat",
+      fatherOccupation: "TNI",
+      motherName: "Kartika Indah",
+      motherOccupation: "Ibu Rumah Tangga",
+      guardianName: "Syaiful Hidayat",
+      guardianPhone: "0821-3344-5566",
+    },
+    "maya.sari@sekolah1.sch.id": {
+      phone: "0852-6677-8899",
+      address: "Jl. Senopati No. 50, Kebayoran Baru, Jakarta Selatan",
+      nik: "3174011809080006",
+      birthPlace: "Medan",
+      birthDate: "2008-09-18",
+      gender: "P" as const,
+      religion: "Islam",
+      fatherName: "Rudi Kusuma",
+      fatherOccupation: "Wiraswasta",
+      motherName: "Lestari Sari",
+      motherOccupation: "Desainer Grafis",
+      guardianName: "Rudi Kusuma",
+      guardianPhone: "0852-6677-8899",
+    },
+    "fajar.dwi@sekolah1.sch.id": {
+      phone: "0878-9900-1122",
+      address: "Jl. Mangga Dua Raya No. 10, Sawah Besar, Jakarta Pusat",
+      nik: "3171030202080007",
+      birthPlace: "Semarang",
+      birthDate: "2008-02-02",
+      gender: "L" as const,
+      religion: "Hindu",
+      fatherName: "I Wayan Dwi",
+      fatherOccupation: "Dosen",
+      motherName: "Ni Luh Ratna",
+      motherOccupation: "PNS",
+      guardianName: "I Wayan Dwi",
+      guardianPhone: "0878-9900-1122",
+    },
+    "nadia.putri@sekolah1.sch.id": {
+      phone: "0819-2233-4455",
+      address: "Jl. Cikini Raya No. 33, Menteng, Jakarta Pusat",
+      nik: "3171022512080008",
+      birthPlace: "Yogyakarta",
+      birthDate: "2008-12-25",
+      gender: "P" as const,
+      religion: "Katolik",
+      fatherName: "Antonius Putri",
+      fatherOccupation: "Pengacara",
+      motherName: "Elisabeth Ningsih",
+      motherOccupation: "Apoteker",
+      guardianName: "Antonius Putri",
+      guardianPhone: "0819-2233-4455",
+    },
+    "bayu.pratama@sekolah1.sch.id": {
+      phone: "0838-5566-7788",
+      address: "Jl. Gajah Mada No. 100, Taman Sari, Jakarta Barat",
+      nik: "3173010404080009",
+      birthPlace: "Malang",
+      birthDate: "2008-04-04",
+      gender: "L" as const,
+      religion: "Buddha",
+      fatherName: "Surya Pratama",
+      fatherOccupation: "Manager IT",
+      motherName: "Yenny Indrawati",
+      motherOccupation: "Wiraswasta",
+      guardianName: "Surya Pratama",
+      guardianPhone: "0838-5566-7788",
+    },
+    "lia.lestari@sekolah1.sch.id": {
+      phone: "0811-6677-8899",
+      address: "Jl. Prapanca Raya No. 20, Kebayoran Baru, Jakarta Selatan",
+      nik: "3174013006080010",
+      birthPlace: "Solo",
+      birthDate: "2008-06-30",
+      gender: "P" as const,
+      religion: "Islam",
+      fatherName: "Agus Lestari",
+      fatherOccupation: "Wiraswasta",
+      motherName: "Sri Wahyuni",
+      motherOccupation: "Bidan",
+      guardianName: "Agus Lestari",
+      guardianPhone: "0811-6677-8899",
+    },
+  };
+
+  for (let i = 0; i < students.length; i++) {
+    const s = students[i];
+    const details = studentMap[s.email] || studentMap["siswa.putra@sekolah1.sch.id"];
+    await db.update(users)
+      .set({ phone: details.phone, address: details.address })
+      .where(eq(users.id, s.id));
+  }
 
   // ─── 2b. ACCOUNT RECORDS (for Better Auth credential login) ───
   console.log("🔑 Creating account records for Better Auth...");
@@ -79,15 +255,51 @@ async function main() {
   // ─── 3. STUDENT PROFILES ───
   console.log("📋 Creating student profiles...");
   const nisPrefix = "2025";
-  await db.insert(studentProfiles).values(
-    students.map((s, i) => ({
-      tenantId: tenant1.id,
-      userId: s.id,
-      nis: `${nisPrefix}${String(i + 1).padStart(4, "0")}`,
-      nisn: `00${String(1000 + i)}`,
-      gender: i % 2 === 0 ? "L" as const : "P" as const,
-    }))
-  );
+
+  for (let i = 0; i < students.length; i++) {
+    const s = students[i];
+    const details = studentMap[s.email] || studentMap["siswa.putra@sekolah1.sch.id"];
+    
+    const existing = await db.query.studentProfiles.findFirst({
+      where: eq(studentProfiles.userId, s.id),
+    });
+
+    if (existing) {
+      await db.update(studentProfiles)
+        .set({
+          gender: details.gender,
+          birthPlace: details.birthPlace,
+          birthDate: details.birthDate,
+          nik: details.nik,
+          religion: details.religion,
+          fatherName: details.fatherName,
+          fatherOccupation: details.fatherOccupation,
+          motherName: details.motherName,
+          motherOccupation: details.motherOccupation,
+          guardianName: details.guardianName,
+          guardianPhone: details.guardianPhone,
+        })
+        .where(eq(studentProfiles.userId, s.id));
+    } else {
+      await db.insert(studentProfiles).values({
+        tenantId: tenant1.id,
+        userId: s.id,
+        nis: `${nisPrefix}${String(i + 1).padStart(4, "0")}`,
+        nisn: `00${String(1000 + i)}`,
+        gender: details.gender,
+        birthPlace: details.birthPlace,
+        birthDate: details.birthDate,
+        nik: details.nik,
+        religion: details.religion,
+        fatherName: details.fatherName,
+        fatherOccupation: details.fatherOccupation,
+        motherName: details.motherName,
+        motherOccupation: details.motherOccupation,
+        guardianName: details.guardianName,
+        guardianPhone: details.guardianPhone,
+      });
+    }
+  }
 
   // ─── 4. TEACHER PROFILES ───
   console.log("👨‍🏫 Creating teacher profiles...");
