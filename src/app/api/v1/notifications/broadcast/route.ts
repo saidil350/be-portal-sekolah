@@ -80,6 +80,12 @@ export const POST = withErrorHandler(
       }
     }
 
+    // Pastikan field nullable UUID benar-benar undefined (bukan null/empty string)
+    // agar Drizzle menggunakan DEFAULT dan PostgreSQL tidak menerima empty string
+    const safeUserId = (parsed.userId && parsed.userId.trim().length > 0) ? parsed.userId : undefined;
+    const safeTargetRole = (parsed.targetRole && parsed.targetRole.trim().length > 0) ? parsed.targetRole : undefined;
+    const safeLink = (parsed.link && parsed.link.trim().length > 0) ? parsed.link : undefined;
+
     const inserted = await db
       .insert(notifications)
       .values({
@@ -87,9 +93,9 @@ export const POST = withErrorHandler(
         title: parsed.title,
         message: parsed.message,
         type: parsed.type,
-        userId: parsed.userId || null,
-        targetRole: parsed.targetRole || null,
-        link: parsed.link || null,
+        userId: safeUserId,
+        targetRole: safeTargetRole,
+        link: safeLink,
       })
       .returning();
 
@@ -99,8 +105,8 @@ export const POST = withErrorHandler(
 
     const notification = mapNotificationToResponse(inserted[0]);
 
-    if (parsed.userId) {
-      emitToUser(parsed.userId, "notification.created", notification);
+    if (safeUserId) {
+      emitToUser(safeUserId, "notification.created", notification);
       emitToTenant(activeTenantId, "notification.broadcast", notification);
     } else {
       emitToTenant(activeTenantId, "notification.broadcast", notification);
