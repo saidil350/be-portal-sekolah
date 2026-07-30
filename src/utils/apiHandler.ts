@@ -23,7 +23,7 @@ export const withErrorHandler = (handler: ApiHandlerFunction) => {
         return errorResponse("Validation Error", 400, error.errors);
       }
 
-      return errorResponse("Internal Server Error", 500, process.env.NODE_ENV === 'development' ? error.message : undefined);
+      return errorResponse("Internal Server Error", 500, error?.message || error?.toString() || undefined);
     }
   };
 };

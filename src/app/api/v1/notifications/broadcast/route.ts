@@ -4,10 +4,9 @@ import { withRole } from "@/middleware/rbacMiddleware";
 import { successResponse } from "@/utils/apiResponse";
 import { broadcastNotificationSchema } from "@/validations/notification";
 import { db } from "@/db";
-import { notifications } from "@/db/schema";
+import { notifications, tenants } from "@/db/schema";
 import { emitToUser, emitToTenant } from "@/websocket";
-
-import { BadRequestError } from "@/utils/AppError";
+import { BadRequestError, AppError } from "@/utils/AppError";
 
 function formatDate(val: any): string | null {
   if (!val) return null;
@@ -42,16 +41,21 @@ export const POST = withErrorHandler(
     const parsed = broadcastNotificationSchema.parse(body);
 
     const headerTenantId = req.headers.get("x-tenant-id");
-    const tenantId = authSession.user.tenantId || headerTenantId;
+    let activeTenantId = authSession.user.tenantId || headerTenantId;
 
-    if (!tenantId) {
-      throw new BadRequestError("Tenant ID tidak ditemukan pada sesi user atau header request.");
+    if (!activeTenantId) {
+      const firstTenant = await db.select({ id: tenants.id }).from(tenants).limit(1);
+      if (firstTenant.length) {
+        activeTenantId = firstTenant[0].id;
+      } else {
+        throw new BadRequestError("Tenant ID tidak ditemukan pada sesi user, header, atau database.");
+      }
     }
 
     const inserted = await db
       .insert(notifications)
       .values({
-        tenantId,
+        tenantId: activeTenantId,
         title: parsed.title,
         message: parsed.message,
         type: parsed.type,
@@ -61,13 +65,17 @@ export const POST = withErrorHandler(
       })
       .returning();
 
+    if (!inserted || !inserted.length) {
+      throw new AppError("Gagal menyimpan notifikasi ke database.", 500);
+    }
+
     const notification = mapNotificationToResponse(inserted[0]);
 
     if (parsed.userId) {
       emitToUser(parsed.userId, "notification.created", notification);
-      emitToTenant(tenantId, "notification.broadcast", notification);
+      emitToTenant(activeTenantId, "notification.broadcast", notification);
     } else {
-      emitToTenant(tenantId, "notification.broadcast", notification);
+      emitToTenant(activeTenantId, "notification.broadcast", notification);
     }
 
     return successResponse(notification, "Notification created successfully", 201);
