@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { db } from "./index";
-import { tenants, users, account, studentProfiles, teacherProfiles, attendanceRecords, notifications, sppInvoices, payments, sppTariffs } from "./schema";
+import { tenants, users, account, studentProfiles, teacherProfiles, attendanceRecords, notifications, sppInvoices, payments, sppTariffs, academicYears, studentClassHistory, classes } from "./schema";
 import { hashPassword } from "@better-auth/utils/password";
 import { eq, sql } from "drizzle-orm";
 
@@ -20,6 +20,29 @@ async function main() {
     ADD COLUMN IF NOT EXISTS mother_occupation text,
     ADD COLUMN IF NOT EXISTS guardian_name text,
     ADD COLUMN IF NOT EXISTS guardian_phone text;
+
+    CREATE TABLE IF NOT EXISTS academic_years (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      tenant_id uuid NOT NULL REFERENCES tenants(id),
+      name text NOT NULL,
+      semester integer NOT NULL DEFAULT 1,
+      is_current boolean NOT NULL DEFAULT false,
+      start_date date,
+      end_date date,
+      created_at timestamp NOT NULL DEFAULT now(),
+      updated_at timestamp NOT NULL DEFAULT now()
+    );
+
+    CREATE TABLE IF NOT EXISTS student_class_history (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      tenant_id uuid NOT NULL REFERENCES tenants(id),
+      student_id uuid NOT NULL REFERENCES users(id),
+      class_id uuid NOT NULL REFERENCES classes(id),
+      academic_year_id uuid NOT NULL REFERENCES academic_years(id),
+      status text NOT NULL DEFAULT 'PROMOTED',
+      created_at timestamp NOT NULL DEFAULT now(),
+      updated_at timestamp NOT NULL DEFAULT now()
+    );
   `);
 
   // Hash password using Better Auth's scrypt hasher
@@ -443,12 +466,56 @@ async function main() {
     await db.insert(notifications).values(notifData.slice(i, i + 50));
   }
 
+  // ─── 11. ACADEMIC YEARS & STUDENT CLASS HISTORY ───
+  console.log("🎓 Creating academic years and student class history...");
+  const [year1] = await db.insert(academicYears).values({
+    tenantId: tenant1.id,
+    name: "2024/2025",
+    semester: 2,
+    isCurrent: false,
+  }).returning();
+
+  const [year2] = await db.insert(academicYears).values({
+    tenantId: tenant1.id,
+    name: "2025/2026",
+    semester: 1,
+    isCurrent: true,
+  }).returning();
+
+  const studentUsers = tenant1Users.filter((u) => u.role === "SISWA");
+  const allClasses = await db.select().from(classes).where(eq(classes.tenantId, tenant1.id));
+  const class10 = allClasses.find((c) => c.level === 10) || allClasses[0];
+  const class11 = allClasses.find((c) => c.level === 11) || allClasses[0];
+
+  if (allClasses.length > 0) {
+    for (const student of studentUsers) {
+      // Record tahun ajaran lalu (naik kelas)
+      await db.insert(studentClassHistory).values({
+        tenantId: tenant1.id,
+        studentId: student.id,
+        classId: class10.id,
+        academicYearId: year1.id,
+        status: "PROMOTED",
+      });
+
+      // Record tahun ajaran aktif saat ini
+      await db.insert(studentClassHistory).values({
+        tenantId: tenant1.id,
+        studentId: student.id,
+        classId: class11.id,
+        academicYearId: year2.id,
+        status: "PROMOTED",
+      });
+    }
+  }
+
   // ─── SUMMARY ───
   console.log("\n✅ Seeding selesai!");
   console.log("─────────────────────────────────");
   console.log(`Tenants:     ${allTenants.length}`);
   console.log(`Users:       ${tenant1Users.length} tenant users`);
   console.log(`Notifications: ~${notifData.length}`);
+  console.log(`Class History: ${studentUsers.length * 2} records`);
   console.log("─────────────────────────────────");
   console.log("\n🔑 Demo Login:");
 

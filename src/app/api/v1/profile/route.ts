@@ -3,8 +3,8 @@ import { withErrorHandler } from "@/utils/apiHandler";
 import { successResponse } from "@/utils/apiResponse";
 import { withAuth } from "@/middleware/auth";
 import { db } from "@/db";
-import { users, studentProfiles, teacherProfiles } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { users, studentProfiles, teacherProfiles, studentClassHistory, classes, academicYears } from "@/db/schema";
+import { eq, desc } from "drizzle-orm";
 import { updateProfileSchema } from "@/validations/profile";
 import { NotFoundError } from "@/utils/AppError";
 
@@ -23,11 +23,45 @@ export const GET = withErrorHandler(
 
     let studentProfile = null;
     let teacherProfile = null;
+    let currentClass = null;
+    let academicHistory: any[] = [];
 
     if (user.role === "SISWA") {
       studentProfile = await db.query.studentProfiles.findFirst({
         where: eq(studentProfiles.userId, userId),
       });
+
+      if (studentProfile?.classId) {
+        currentClass = await db.query.classes.findFirst({
+          where: eq(classes.id, studentProfile.classId),
+        });
+      }
+
+      // Ambil riwayat kenaikan kelas dari tabel student_class_history
+      const historyRows = await db
+        .select({
+          id: studentClassHistory.id,
+          academicYear: academicYears.name,
+          semester: academicYears.semester,
+          className: classes.name,
+          level: classes.level,
+          status: studentClassHistory.status,
+          createdAt: studentClassHistory.createdAt,
+        })
+        .from(studentClassHistory)
+        .leftJoin(classes, eq(studentClassHistory.classId, classes.id))
+        .leftJoin(academicYears, eq(studentClassHistory.academicYearId, academicYears.id))
+        .where(eq(studentClassHistory.studentId, userId))
+        .orderBy(desc(studentClassHistory.createdAt));
+
+      academicHistory = historyRows.map((h, idx) => ({
+        academicYear: h.academicYear || "2025/2026",
+        grade: h.level ? `Kelas ${h.level}` : "Kelas",
+        className: h.className || "Kelas",
+        semester: `Semester ${h.semester || 1}`,
+        status: h.status === "PROMOTED" ? "Naik Kelas" : h.status === "GRADUATED" ? "Lulus" : "Tinggal Kelas",
+        isCurrent: idx === 0,
+      }));
     } else if (user.role === "GURU") {
       teacherProfile = await db.query.teacherProfiles.findFirst({
         where: eq(teacherProfiles.userId, userId),
@@ -46,6 +80,8 @@ export const GET = withErrorHandler(
       isActive: user.isActive,
       studentProfile,
       teacherProfile,
+      currentClass,
+      academicHistory,
       createdAt: user.createdAt.toISOString(),
       updatedAt: user.updatedAt.toISOString(),
     };

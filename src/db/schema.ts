@@ -6,3 +6,6 @@ export * from "./schemas/attendance";
 export * from "./schemas/notifications";
 export * from "./schemas/payments";
 export * from "./schemas/classes";
+export * from "./schemas/academic_years";
+export * from "./schemas/student_class_history";
+
