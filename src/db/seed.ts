@@ -9,7 +9,7 @@ const PASSWORD = "Password123";
 async function main() {
   console.log("🌱 Memulai seeding database...");
 
-  // Ensure student_profiles columns exist
+  // Ensure student_profiles & notifications columns exist
   await db.execute(sql`
     ALTER TABLE student_profiles 
     ADD COLUMN IF NOT EXISTS nik text,
@@ -20,6 +20,12 @@ async function main() {
     ADD COLUMN IF NOT EXISTS mother_occupation text,
     ADD COLUMN IF NOT EXISTS guardian_name text,
     ADD COLUMN IF NOT EXISTS guardian_phone text;
+
+    ALTER TABLE notifications
+    ADD COLUMN IF NOT EXISTS target_role text;
+
+    ALTER TABLE classes
+    ADD COLUMN IF NOT EXISTS academic_year_id uuid;
 
     CREATE TABLE IF NOT EXISTS academic_years (
       id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -251,38 +257,36 @@ async function main() {
     },
   };
 
-  for (let i = 0; i < students.length; i++) {
-    const s = students[i];
-    const details = studentMap[s.email] || studentMap["siswa.putra@sekolah1.sch.id"];
-    await db.update(users)
-      .set({ phone: details.phone, address: details.address })
-      .where(eq(users.id, s.id));
-  }
-
-  // ─── 2b. ACCOUNT RECORDS (for Better Auth credential login) ───
-  console.log("🔑 Creating account records for Better Auth...");
-  const allUsers = [...tenant1Users];
-  const now = new Date();
-  await db.insert(account).values(
-    allUsers.map((u) => ({
-      id: `cred_${u.id}`,
-      accountId: u.email,
-      providerId: "credential",
-      userId: u.id,
-      password: hashedPassword,
-      createdAt: now,
-      updatedAt: now,
-    }))
-  ).onConflictDoNothing();
-
   // ─── 3. STUDENT PROFILES ───
-  console.log("📋 Creating student profiles...");
+  console.log("📋 Creating student profiles for all students...");
+  const allDbStudents = await db.select().from(users).where(eq(users.role, "SISWA"));
   const nisPrefix = "2025";
 
-  for (let i = 0; i < students.length; i++) {
-    const s = students[i];
-    const details = studentMap[s.email] || studentMap["siswa.putra@sekolah1.sch.id"];
-    
+  for (let i = 0; i < allDbStudents.length; i++) {
+    const s = allDbStudents[i];
+    const details = studentMap[s.email] || {
+      phone: s.phone || "0812-9876-5432",
+      address: s.address || "Jl. Kebon Jeruk Raya No. 45, Jakarta",
+      nik: `31740${String(100000000 + i + 1).slice(0, 11)}`,
+      birthPlace: "Jakarta",
+      birthDate: "2008-05-15",
+      gender: i % 2 === 0 ? ("L" as const) : ("P" as const),
+      religion: "Islam",
+      fatherName: `Bambang ${s.name.split(" ")[0]}`,
+      fatherOccupation: "Wiraswasta",
+      motherName: `Dewi ${s.name.split(" ")[0]}`,
+      motherOccupation: "Ibu Rumah Tangga",
+      guardianName: `Bambang ${s.name.split(" ")[0]}`,
+      guardianPhone: s.phone || "0812-9876-5432",
+    };
+
+    await db.update(users)
+      .set({ 
+        phone: s.phone || details.phone, 
+        address: s.address || details.address 
+      })
+      .where(eq(users.id, s.id));
+
     const existing = await db.query.studentProfiles.findFirst({
       where: eq(studentProfiles.userId, s.id),
     });
@@ -305,7 +309,7 @@ async function main() {
         .where(eq(studentProfiles.userId, s.id));
     } else {
       await db.insert(studentProfiles).values({
-        tenantId: tenant1.id,
+        tenantId: s.tenantId,
         userId: s.id,
         nis: `${nisPrefix}${String(i + 1).padStart(4, "0")}`,
         nisn: `00${String(1000 + i)}`,
