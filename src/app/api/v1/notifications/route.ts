@@ -7,6 +7,16 @@ import { db } from "@/db";
 import { notifications } from "@/db/schema";
 import { eq, and, or, isNull, desc, sql } from "drizzle-orm";
 
+function formatDate(val: any): string | null {
+  if (!val) return null;
+  if (val instanceof Date) return val.toISOString();
+  try {
+    return new Date(val).toISOString();
+  } catch {
+    return null;
+  }
+}
+
 function mapNotificationToResponse(n: any) {
   return {
     id: n.id,
@@ -17,10 +27,10 @@ function mapNotificationToResponse(n: any) {
     userId: n.userId,
     targetRole: n.targetRole || null,
     isRead: n.isRead,
-    readAt: n.readAt?.toISOString() || null,
+    readAt: formatDate(n.readAt),
     link: n.link,
-    createdAt: n.createdAt.toISOString(),
-    updatedAt: n.updatedAt.toISOString(),
+    createdAt: formatDate(n.createdAt) || new Date().toISOString(),
+    updatedAt: formatDate(n.updatedAt) || new Date().toISOString(),
   };
 }
 
