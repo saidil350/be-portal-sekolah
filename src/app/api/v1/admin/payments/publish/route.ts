@@ -56,9 +56,11 @@ export const POST = withErrorHandler(
     if (overrideAmount !== undefined && overrideAmount !== null) {
       defaultAmount = overrideAmount;
     } else {
-      const activeTariff = await db.query.sppTariffs.findFirst({
-        where: and(eq(sppTariffs.tenantId, tenantId), eq(sppTariffs.isActive, true)),
-      });
+      const [activeTariff] = await db
+        .select()
+        .from(sppTariffs)
+        .where(and(eq(sppTariffs.tenantId, tenantId), eq(sppTariffs.isActive, true)))
+        .limit(1);
       if (activeTariff) {
         defaultAmount = activeTariff.amount;
       }
@@ -75,14 +77,18 @@ export const POST = withErrorHandler(
 
     for (const student of targetStudents) {
       // Cek apakah invoice sudah pernah diterbitkan untuk siswa pada bulan & tahun tersebut
-      const existing = await db.query.sppInvoices.findFirst({
-        where: and(
-          eq(sppInvoices.tenantId, tenantId),
-          eq(sppInvoices.studentId, student.id),
-          eq(sppInvoices.month, month),
-          eq(sppInvoices.year, year)
-        ),
-      });
+      const [existing] = await db
+        .select()
+        .from(sppInvoices)
+        .where(
+          and(
+            eq(sppInvoices.tenantId, tenantId),
+            eq(sppInvoices.studentId, student.id),
+            eq(sppInvoices.month, month),
+            eq(sppInvoices.year, year)
+          )
+        )
+        .limit(1);
 
       if (existing) {
         skippedCount++;

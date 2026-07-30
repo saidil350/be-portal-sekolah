@@ -362,7 +362,14 @@ export class PaymentService {
       .orderBy(desc(payments.createdAt));
 
     if (rows.length === 0) {
-      throw new Error("Belum ada transaksi pembayaran yang dibuat untuk invoice ini");
+      const invoice = await db.query.sppInvoices.findFirst({
+        where: eq(sppInvoices.id, invoiceId)
+      });
+      if (!invoice) throw new Error("Invoice tidak ditemukan");
+      return {
+        status: invoice.status,
+        invoiceStatus: invoice.status,
+      };
     }
 
     const invoice = rows[0].invoice;
