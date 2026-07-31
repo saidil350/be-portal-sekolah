@@ -20,7 +20,7 @@ export const GET = withErrorHandler(
     }
 
     // 1. Cari siswa yang memang terdaftar di class_id ini
-    let studentList = await db
+    const studentList = await db
       .select({
         id: users.id,
         name: users.name,
@@ -33,36 +33,11 @@ export const GET = withErrorHandler(
       .where(
         and(
           eq(users.tenantId, tenantId),
+          eq(users.role, "SISWA"),
           eq(studentProfiles.classId, classId)
         )
       )
       .execute();
-
-    // 2. Jika kelas belum memiliki siswa terdaftar, ambil siswa ber-role SISWA di tenant ini sebagai fallback demo
-    if (studentList.length === 0) {
-      const fallbackStudents = await db
-        .select({
-          id: users.id,
-          name: users.name,
-          email: users.email,
-          nis: studentProfiles.nis,
-          nisn: studentProfiles.nisn,
-        })
-        .from(users)
-        .innerJoin(studentProfiles, eq(users.id, studentProfiles.userId))
-        .where(
-          and(
-            eq(users.tenantId, tenantId),
-            eq(users.role, "SISWA")
-          )
-        )
-        .limit(10)
-        .execute();
-
-      if (fallbackStudents.length > 0) {
-        studentList = fallbackStudents;
-      }
-    }
 
     return successResponse(studentList);
   })
