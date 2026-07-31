@@ -63,6 +63,8 @@ export const GET = withErrorHandler(
 
     const data = recentNotifications.map(n => ({
       title: n.title,
+      message: n.message,
+      type: n.type,
       audience: getAudienceLabel(n.userId, n.targetRole),
       channel: 'In-app',
       sent: n.userId ? '1' : getAudienceLabel(n.userId, n.targetRole),
