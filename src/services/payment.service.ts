@@ -126,6 +126,11 @@ export class PaymentService {
       ],
     };
 
+    const frontendUrl = process.env.FRONTEND_URL || env.APP_URL || "http://localhost:3000";
+    snapParams.callbacks = {
+      finish: `${frontendUrl}/dashboard/siswa/payments`,
+    };
+
     // Daftarkan URL webhook eksplisit per transaksi agar Midtrans selalu memanggil endpoint kita,
     // meskipun konfigurasi default di dashboard belum/berubah.
     if (env.WEBHOOK_URL) {
