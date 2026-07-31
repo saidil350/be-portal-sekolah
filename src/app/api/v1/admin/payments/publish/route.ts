@@ -31,7 +31,7 @@ const publishSchema = z.object({
   month: z.number().min(1).max(12),
   year: z.number().min(2020).max(2100),
   dueDate: z.string().optional(),
-  overrideAmount: z.number().min(0).optional(),
+  overrideAmount: z.number().positive("Nominal override SPP harus lebih besar dari 0").optional(),
   targetType: z.enum(["ALL", "GRADE", "STUDENTS"]),
   targetGrade: z.string().optional(),
   studentIds: z.array(z.string().uuid()).optional(),
@@ -70,18 +70,24 @@ export const POST = withErrorHandler(
       return errorResponse("Tidak ada siswa yang ditemukan untuk diterbitkan tagihan.", 404);
     }
 
-    // 2. Ambil tarif default jika overrideAmount tidak diisi
-    let defaultAmount = 450000;
+    // 2. Tentukan nominal SPP (peta per siswa atau default override)
+    const studentTariffMap = new Map<string, number>();
+    let defaultTenantAmount = 450000;
+
     if (overrideAmount !== undefined && overrideAmount !== null) {
-      defaultAmount = overrideAmount;
+      defaultTenantAmount = overrideAmount;
     } else {
-      const [activeTariff] = await db
+      const activeTariffs = await db
         .select()
         .from(sppTariffs)
-        .where(and(eq(sppTariffs.tenantId, tenantId), eq(sppTariffs.isActive, true)))
-        .limit(1);
-      if (activeTariff) {
-        defaultAmount = activeTariff.amount;
+        .where(and(eq(sppTariffs.tenantId, tenantId), eq(sppTariffs.isActive, true)));
+
+      for (const tariff of activeTariffs) {
+        if (tariff.studentId) {
+          studentTariffMap.set(tariff.studentId, tariff.amount);
+        } else if (!tariff.grade && !tariff.class) {
+          defaultTenantAmount = tariff.amount;
+        }
       }
     }
 
@@ -114,6 +120,10 @@ export const POST = withErrorHandler(
         continue;
       }
 
+      const finalAmount = overrideAmount !== undefined && overrideAmount !== null
+        ? overrideAmount
+        : (studentTariffMap.get(student.id) ?? defaultTenantAmount);
+
       // Generate invoice number unik: INV-SPP-YYYYMM-[4 digit random]
       const randomSuffix = Math.floor(1000 + Math.random() * 9000);
       const invoiceNumber = `INV-SPP-${year}${formattedMonth}-${randomSuffix}-${student.id.substring(0, 4).toUpperCase()}`;
@@ -124,7 +134,7 @@ export const POST = withErrorHandler(
         invoiceNumber,
         month,
         year,
-        amount: defaultAmount,
+        amount: finalAmount,
         dueDate: invoiceDueDate,
         status: "PENDING",
       });
@@ -134,7 +144,7 @@ export const POST = withErrorHandler(
         studentName: student.name,
         month,
         year,
-        amount: defaultAmount,
+        amount: finalAmount,
         dueDate: invoiceDueDate,
       });
 
@@ -164,7 +174,7 @@ export const POST = withErrorHandler(
         module: "PAYMENT",
         month,
         year,
-        amount: defaultAmount,
+        amount: defaultTenantAmount,
         targetType,
         createdCount,
         skippedCount,
@@ -177,7 +187,7 @@ export const POST = withErrorHandler(
       message: `Berhasil menerbitkan ${createdCount} invoice SPP. (${skippedCount} siswa disetujui/sudah pernah terbit)`,
       createdCount,
       skippedCount,
-      amountUsed: defaultAmount,
+      amountUsed: defaultTenantAmount,
     });
   })
 );

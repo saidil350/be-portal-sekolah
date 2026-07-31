@@ -72,10 +72,12 @@ async function main() {
 
 
 
-  // Tenant 1 users
+  // Tenant 1 users & global accounts
   await db.insert(users).values([
+    { tenantId: tenant1.id, name: "Super Admin", email: "superadmin@portalsekolah.id", password: hashedPassword, role: "SUPER_ADMIN", emailVerified: true, isActive: true },
     { tenantId: tenant1.id, name: "Ahmad Fauzi", email: "admin.it@sekolah1.sch.id", password: hashedPassword, role: "ADMIN_IT", emailVerified: true, isActive: true },
     { tenantId: tenant1.id, name: "Dr. Siti Rahayu", email: "kepsek@sekolah1.sch.id", password: hashedPassword, role: "KEPALA_SEKOLAH", emailVerified: true, isActive: true },
+    { tenantId: tenant1.id, name: "Dewi Kartika", email: "staff.keuangan@sekolah1.sch.id", password: hashedPassword, role: "STAFF", emailVerified: true, isActive: true },
     { tenantId: tenant1.id, name: "Budi Santoso", email: "guru.budi@sekolah1.sch.id", password: hashedPassword, role: "GURU", emailVerified: true, isActive: true },
     { tenantId: tenant1.id, name: "Siti Aminah, S.Pd", email: "siti.aminah@sekolah1.sch.id", password: hashedPassword, role: "GURU", emailVerified: true, isActive: true },
     { tenantId: tenant1.id, name: "Wahyu Nugroho", email: "wahyu.nugroho@sekolah1.sch.id", password: hashedPassword, role: "GURU", emailVerified: true, isActive: true },
@@ -91,17 +93,20 @@ async function main() {
     { tenantId: tenant1.id, name: "Nadia Putri", email: "nadia.putri@sekolah1.sch.id", password: hashedPassword, role: "SISWA", phone: "0819-2233-4455", address: "Jl. Cikini Raya No. 33, Menteng, Jakarta Pusat", emailVerified: true, isActive: true },
     { tenantId: tenant1.id, name: "Bayu Pratama", email: "bayu.pratama@sekolah1.sch.id", password: hashedPassword, role: "SISWA", phone: "0838-5566-7788", address: "Jl. Gajah Mada No. 100, Taman Sari, Jakarta Barat", emailVerified: true, isActive: true },
     { tenantId: tenant1.id, name: "Lia Lestari", email: "lia.lestari@sekolah1.sch.id", password: hashedPassword, role: "SISWA", phone: "0811-6677-8899", address: "Jl. Prapanca Raya No. 20, Kebayoran Baru, Jakarta Selatan", emailVerified: true, isActive: true },
+    { tenantId: tenant1.id, name: "Test User", email: "test@test.com", password: hashedPassword, role: "SISWA", emailVerified: true, isActive: true },
   ]).onConflictDoNothing().returning();
 
   const tenant1Users = await db.select().from(users);
 
-  const adminIt = tenant1Users[0];
-  const kepsek = tenant1Users[1];
-  const guru1 = tenant1Users[2]; // Budi
-  const guru2 = tenant1Users[3]; // Siti
-  const guru3 = tenant1Users[4]; // Wahyu
-  const staff1 = tenant1Users[5];
-  const students = tenant1Users.filter((u) => u.role === "SISWA"); // All 10 students
+  const superAdmin = tenant1Users.find(u => u.role === "SUPER_ADMIN");
+  const adminIt = tenant1Users.find(u => u.role === "ADMIN_IT");
+  const kepsek = tenant1Users.find(u => u.role === "KEPALA_SEKOLAH");
+  const staff1 = tenant1Users.find(u => u.role === "STAFF");
+  const teachers = tenant1Users.filter(u => u.role === "GURU");
+  const guru1 = teachers[0];
+  const guru2 = teachers[1];
+  const guru3 = teachers[2];
+  const students = tenant1Users.filter((u) => u.role === "SISWA");
 
   // Map student email directly to dummy profile details to ensure accurate assignment
   const studentMap: Record<string, any> = {
@@ -365,23 +370,34 @@ async function main() {
 
 
 
+  // ─── 5. CLASSES ───
+  console.log("🏫 Creating classes...");
+  let insertedClasses = await db.select().from(classes).where(eq(classes.tenantId, tenant1.id));
+  if (insertedClasses.length === 0) {
+    insertedClasses = await db.insert(classes).values([
+      { tenantId: tenant1.id, name: "10 IPA 1", level: 10, program: "IPA", homeroomTeacherId: guru1.id },
+      { tenantId: tenant1.id, name: "11 IPA 1", level: 11, program: "IPA", homeroomTeacherId: guru2.id },
+      { tenantId: tenant1.id, name: "11 IPS 1", level: 11, program: "IPS", homeroomTeacherId: guru3.id },
+      { tenantId: tenant1.id, name: "12 IPA 1", level: 12, program: "IPA", homeroomTeacherId: guru1.id },
+    ]).returning();
+  }
+
   // ─── 8. SPP INVOICES & PAYMENTS ───
-  console.log("💳 Creating SPP invoices and payments...");
+  console.log("💳 Creating SPP invoices and payments for all students...");
   
   // Bersihkan data lama agar tidak menumpuk saat re-seed
   await db.delete(payments);
   await db.delete(sppInvoices);
 
-  const putraAditya = students[0]; // Putra Aditya
-  
-  if (putraAditya) {
-    const timeStr = Date.now().toString().substring(7);
+  for (let idx = 0; idx < students.length; idx++) {
+    const student = students[idx];
+    const timeStr = (Date.now() + idx).toString().substring(7);
 
     // Mei 2026 (Bulan 5) - Lunas
     const invMei = await db.insert(sppInvoices).values({
       tenantId: tenant1.id,
-      studentId: putraAditya.id,
-      invoiceNumber: `INV-202605-${putraAditya.id.substring(0, 4)}-${timeStr}`,
+      studentId: student.id,
+      invoiceNumber: `INV-202605-${student.id.substring(0, 4)}-${timeStr}`,
       amount: 500000,
       month: 5,
       year: 2026,
@@ -392,8 +408,8 @@ async function main() {
     // Juni 2026 (Bulan 6) - Lunas
     const invJuni = await db.insert(sppInvoices).values({
       tenantId: tenant1.id,
-      studentId: putraAditya.id,
-      invoiceNumber: `INV-202606-${putraAditya.id.substring(0, 4)}-${timeStr}`,
+      studentId: student.id,
+      invoiceNumber: `INV-202606-${student.id.substring(0, 4)}-${timeStr}`,
       amount: 500000,
       month: 6,
       year: 2026,
@@ -401,15 +417,16 @@ async function main() {
       dueDate: new Date("2026-06-10"),
     }).returning();
 
-    // Juli 2026 (Bulan 7 - Bulan Berjalan saat ini) - PENDING / Belum Lunas
+    // Juli 2026 (Bulan 7 - Bulan Berjalan saat ini) - PENDING / Belum Lunas (beberapa PAID)
+    const currentStatus = idx % 3 === 0 ? "PAID" : "PENDING";
     const invJuli = await db.insert(sppInvoices).values({
       tenantId: tenant1.id,
-      studentId: putraAditya.id,
-      invoiceNumber: `INV-202607-${putraAditya.id.substring(0, 4)}-${timeStr}`,
+      studentId: student.id,
+      invoiceNumber: `INV-202607-${student.id.substring(0, 4)}-${timeStr}`,
       amount: 500000,
       month: 7,
       year: 2026,
-      status: "PENDING",
+      status: currentStatus,
       dueDate: new Date("2026-07-10"),
     }).returning();
 
@@ -438,6 +455,20 @@ async function main() {
         paidAt: new Date("2026-06-08"),
       },
     ]);
+
+    if (currentStatus === "PAID") {
+      await db.insert(payments).values({
+        tenantId: tenant1.id,
+        invoiceId: invJuli[0].id,
+        paymentNumber: `PAY-202607-${timeStr}`,
+        orderId: `SPP-${invJuli[0].id.substring(0, 8)}-3`,
+        amount: 505000,
+        paymentMethod: "qris",
+        paymentType: "qris",
+        status: "PAID",
+        paidAt: new Date("2026-07-05"),
+      });
+    }
   }
 
   // ─── 10. NOTIFICATIONS ───
