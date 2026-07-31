@@ -356,11 +356,10 @@ async function main() {
   }
 
   // ─── 4. TEACHER PROFILES ───
-  console.log("👨‍🏫 Creating teacher profiles...");
-  await db.insert(teacherProfiles).values([
+  console.log("👨‍🏫 Creating & updating teacher profiles...");
+  const teacherSeedData = [
     {
-      tenantId: tenant1.id,
-      userId: guru1.id,
+      user: guru1,
       nip: "198501012010011001",
       gender: "L",
       birthPlace: "Jakarta",
@@ -369,11 +368,11 @@ async function main() {
       religion: "Islam",
       education: "S1 - Sarjana Pendidikan",
       subjectArea: ["Kimia", "Fisika"],
-      isHomeroom: true,
+      phone: "0812-3456-7890",
+      address: "Jl. Margonda Raya No. 100, Depok",
     },
     {
-      tenantId: tenant1.id,
-      userId: guru2.id,
+      user: guru2,
       nip: "198702152011012002",
       gender: "P",
       birthPlace: "Bandung",
@@ -382,11 +381,11 @@ async function main() {
       religion: "Islam",
       education: "S2 - Magister Pendidikan",
       subjectArea: ["Matematika"],
-      isHomeroom: true,
+      phone: "0813-8899-0011",
+      address: "Jl. Pajajaran No. 42, Bandung",
     },
     {
-      tenantId: tenant1.id,
-      userId: guru3.id,
+      user: guru3,
       nip: "199003202012011003",
       gender: "L",
       birthPlace: "Surakarta",
@@ -395,9 +394,34 @@ async function main() {
       religion: "Islam",
       education: "S1 - Sarjana Pendidikan",
       subjectArea: ["Bahasa Indonesia", "IPS"],
-      isHomeroom: true,
+      phone: "0856-7788-9900",
+      address: "Jl. Slamet Riyadi No. 15, Surakarta",
     },
-  ]);
+  ];
+
+  await db.delete(teacherProfiles).where(eq(teacherProfiles.tenantId, tenant1.id));
+
+  for (const item of teacherSeedData) {
+    if (item.user) {
+      await db.update(users)
+        .set({ phone: item.phone, address: item.address })
+        .where(eq(users.id, item.user.id));
+
+      await db.insert(teacherProfiles).values({
+        tenantId: tenant1.id,
+        userId: item.user.id,
+        nip: item.nip,
+        gender: item.gender,
+        birthPlace: item.birthPlace,
+        birthDate: item.birthDate,
+        nik: item.nik,
+        religion: item.religion,
+        education: item.education,
+        subjectArea: item.subjectArea,
+        isHomeroom: true,
+      });
+    }
+  }
 
   // ─── 7. ATTENDANCE ───
   console.log("✅ Creating attendance records...");
