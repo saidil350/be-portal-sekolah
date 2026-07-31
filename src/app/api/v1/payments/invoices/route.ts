@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Gunakan LEFT JOIN agar tidak terjadi N+1 Query
-    // Query ini akan mengambil Invoices beserta Payment sukses terakhir jika ada
+    // Query ini akan mengambil Invoices beserta Payment terakhir jika ada (baik PENDING maupun PAID)
     const queryBuilder = db
       .select({
         id: sppInvoices.id,
@@ -55,13 +55,14 @@ export async function GET(req: NextRequest) {
         dueDate: sppInvoices.dueDate,
         updatedAt: sppInvoices.updatedAt,
         paymentMethod: payments.paymentMethod,
+        orderId: payments.orderId,
       })
       .from(sppInvoices)
       .leftJoin(
         payments,
         and(
           eq(payments.invoiceId, sppInvoices.id),
-          eq(payments.status, "PAID")
+          sql`${payments.id} = (SELECT p2.id FROM payments p2 WHERE p2.invoice_id = ${sppInvoices.id} ORDER BY p2.created_at DESC LIMIT 1)`
         )
       )
       .where(and(...conditions))
@@ -91,6 +92,7 @@ export async function GET(req: NextRequest) {
         status: inv.status === 'PAID' ? 'PAID' : 'UNPAID',
         paidAt: inv.status === 'PAID' ? (inv.updatedAt ? inv.updatedAt.toISOString().split('T')[0] : new Date().toISOString().split('T')[0]) : undefined,
         method: inv.status === 'PAID' ? (inv.paymentMethod || 'Tunai / System') : (inv.paymentMethod || undefined),
+        orderId: inv.orderId || undefined,
       };
     });
 
