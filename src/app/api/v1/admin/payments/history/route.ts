@@ -9,12 +9,14 @@ import { z } from "zod";
 
 const querySchema = z.object({
   page: z.coerce.number().min(1).default(1),
-  limit: z.coerce.number().min(1).max(100).default(10),
+  limit: z.coerce.number().min(1).max(1000).default(10),
   search: z.string().optional(),
   status: z.string().optional(),
   method: z.string().optional(),
   startDate: z.string().optional(),
   endDate: z.string().optional(),
+  month: z.coerce.number().optional(),
+  year: z.coerce.number().optional(),
 });
 
 export const GET = withErrorHandler(
@@ -30,7 +32,7 @@ export const GET = withErrorHandler(
       return errorResponse("Invalid query parameters", 400, parsedQuery.error.errors);
     }
 
-    const { page, limit, search, status, method, startDate, endDate } = parsedQuery.data;
+    const { page, limit, search, status, method, startDate, endDate, month, year } = parsedQuery.data;
     const offset = (page - 1) * limit;
 
     const conditions = [
@@ -49,6 +51,12 @@ export const GET = withErrorHandler(
     }
     if (method && method !== 'all') {
       conditions.push(eq(payments.paymentMethod, method));
+    }
+    if (month && month > 0) {
+      conditions.push(eq(sppInvoices.month, month));
+    }
+    if (year && year > 0) {
+      conditions.push(eq(sppInvoices.year, year));
     }
     if (startDate) {
       conditions.push(gte(sql`COALESCE(${payments.createdAt}, ${sppInvoices.updatedAt})`, new Date(startDate)));
