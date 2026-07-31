@@ -23,4 +23,5 @@ export const updateUserSchema = z.object({
   role: z.enum(["ADMIN_IT", "KEPALA_SEKOLAH", "GURU", "SISWA"]).optional(),
   isActive: z.boolean().optional(),
   image: z.string().nullable().optional(),
+  nisn: z.string().nullable().optional(),
 });

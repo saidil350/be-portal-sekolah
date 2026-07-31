@@ -166,6 +166,31 @@ export const PATCH = withErrorHandler(
     // Update the user
     await db.update(users).set(updateData).where(eq(users.id, id));
 
+    // Handle student profile updates (e.g. NISN) if applicable
+    if (parsed.nisn !== undefined && existingUser.role === "SISWA") {
+      const existingProfile = await db.query.studentProfiles.findFirst({
+        where: eq(studentProfiles.userId, id),
+      });
+
+      if (existingProfile) {
+        await db
+          .update(studentProfiles)
+          .set({
+            nisn: parsed.nisn,
+            updatedAt: new Date(),
+          })
+          .where(eq(studentProfiles.userId, id));
+      } else {
+        await db.insert(studentProfiles).values({
+          userId: id,
+          tenantId: existingUser.tenantId,
+          nis: parsed.nisn || "00000",
+          nisn: parsed.nisn,
+          gender: "L",
+        });
+      }
+    }
+
     // Fetch the updated user
     const updatedUser = await db.query.users.findFirst({
       where: eq(users.id, id),
