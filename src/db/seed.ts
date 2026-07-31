@@ -245,24 +245,37 @@ async function main() {
       guardianName: "Surya Pratama",
       guardianPhone: "0838-5566-7788",
     },
-    "lia.lestari@sekolah1.sch.id": {
-      phone: "0811-6677-8899",
-      address: "Jl. Prapanca Raya No. 20, Kebayoran Baru, Jakarta Selatan",
-      nik: "3174013006080010",
-      birthPlace: "Solo",
-      birthDate: "2008-06-30",
-      gender: "P" as const,
+    "test@test.com": {
+      phone: "0812-3456-7890",
+      address: "Jl. Sudirman No. 88, Menteng, Jakarta Pusat",
+      nik: "3171011503080099",
+      birthPlace: "Jakarta",
+      birthDate: "2008-03-15",
+      gender: "L" as const,
       religion: "Islam",
-      fatherName: "Agus Lestari",
+      fatherName: "Budi Santoso",
       fatherOccupation: "Wiraswasta",
-      motherName: "Sri Wahyuni",
-      motherOccupation: "Bidan",
-      guardianName: "Agus Lestari",
-      guardianPhone: "0811-6677-8899",
+      motherName: "Siti Rahmawati",
+      motherOccupation: "Ibu Rumah Tangga",
+      guardianName: "Budi Santoso",
+      guardianPhone: "0812-3456-7890",
     },
   };
 
-  // ─── 3. STUDENT PROFILES ───
+  // ─── 3. CLASSES ───
+  console.log("🏫 Creating classes...");
+  let insertedClasses = await db.select().from(classes).where(eq(classes.tenantId, tenant1.id));
+  if (insertedClasses.length === 0) {
+    insertedClasses = await db.insert(classes).values([
+      { tenantId: tenant1.id, name: "10 IPA 1", level: 10, program: "IPA", homeroomTeacherId: guru1.id },
+      { tenantId: tenant1.id, name: "11 IPA 1", level: 11, program: "IPA", homeroomTeacherId: guru2.id },
+      { tenantId: tenant1.id, name: "11 IPS 1", level: 11, program: "IPS", homeroomTeacherId: guru3.id },
+      { tenantId: tenant1.id, name: "12 IPA 1", level: 12, program: "IPA", homeroomTeacherId: guru1.id },
+    ]).returning();
+  }
+  const defaultClass = insertedClasses.find(c => c.level === 11) || insertedClasses[0];
+
+  // ─── 4. STUDENT PROFILES ───
   console.log("📋 Creating student profiles for all students...");
   const allDbStudents = await db.select().from(users).where(eq(users.role, "SISWA"));
   const nisPrefix = "2025";
@@ -299,6 +312,7 @@ async function main() {
     if (existing) {
       await db.update(studentProfiles)
         .set({
+          classId: existing.classId || defaultClass.id,
           gender: details.gender,
           birthPlace: details.birthPlace,
           birthDate: details.birthDate,
@@ -316,6 +330,7 @@ async function main() {
       await db.insert(studentProfiles).values({
         tenantId: s.tenantId,
         userId: s.id,
+        classId: defaultClass.id,
         nis: `${nisPrefix}${String(i + 1).padStart(4, "0")}`,
         nisn: `00${String(1000 + i)}`,
         gender: details.gender,
@@ -370,17 +385,6 @@ async function main() {
 
 
 
-  // ─── 5. CLASSES ───
-  console.log("🏫 Creating classes...");
-  let insertedClasses = await db.select().from(classes).where(eq(classes.tenantId, tenant1.id));
-  if (insertedClasses.length === 0) {
-    insertedClasses = await db.insert(classes).values([
-      { tenantId: tenant1.id, name: "10 IPA 1", level: 10, program: "IPA", homeroomTeacherId: guru1.id },
-      { tenantId: tenant1.id, name: "11 IPA 1", level: 11, program: "IPA", homeroomTeacherId: guru2.id },
-      { tenantId: tenant1.id, name: "11 IPS 1", level: 11, program: "IPS", homeroomTeacherId: guru3.id },
-      { tenantId: tenant1.id, name: "12 IPA 1", level: 12, program: "IPA", homeroomTeacherId: guru1.id },
-    ]).returning();
-  }
 
   // ─── 8. SPP INVOICES & PAYMENTS ───
   console.log("💳 Creating SPP invoices and payments for all students...");
