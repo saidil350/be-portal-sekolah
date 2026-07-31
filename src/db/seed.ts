@@ -24,6 +24,13 @@ async function main() {
     ALTER TABLE notifications
     ADD COLUMN IF NOT EXISTS target_role text;
 
+    ALTER TABLE teacher_profiles
+    ADD COLUMN IF NOT EXISTS birth_place text,
+    ADD COLUMN IF NOT EXISTS birth_date date,
+    ADD COLUMN IF NOT EXISTS nik text,
+    ADD COLUMN IF NOT EXISTS religion text,
+    ADD COLUMN IF NOT EXISTS education text;
+
     ALTER TABLE classes
     ADD COLUMN IF NOT EXISTS academic_year_id uuid;
 
@@ -351,9 +358,45 @@ async function main() {
   // ─── 4. TEACHER PROFILES ───
   console.log("👨‍🏫 Creating teacher profiles...");
   await db.insert(teacherProfiles).values([
-    { tenantId: tenant1.id, userId: guru1.id, nip: "198501012010011001", gender: "L", subjectArea: ["Kimia", "Fisika"], isHomeroom: true },
-    { tenantId: tenant1.id, userId: guru2.id, nip: "198702152011012002", gender: "P", subjectArea: ["Matematika"], isHomeroom: true },
-    { tenantId: tenant1.id, userId: guru3.id, nip: "199003202012011003", gender: "L", subjectArea: ["Bahasa Indonesia", "IPS"], isHomeroom: true },
+    {
+      tenantId: tenant1.id,
+      userId: guru1.id,
+      nip: "198501012010011001",
+      gender: "L",
+      birthPlace: "Jakarta",
+      birthDate: "1985-01-01",
+      nik: "3174010101850001",
+      religion: "Islam",
+      education: "S1 - Sarjana Pendidikan",
+      subjectArea: ["Kimia", "Fisika"],
+      isHomeroom: true,
+    },
+    {
+      tenantId: tenant1.id,
+      userId: guru2.id,
+      nip: "198702152011012002",
+      gender: "P",
+      birthPlace: "Bandung",
+      birthDate: "1987-02-15",
+      nik: "3174025502870002",
+      religion: "Islam",
+      education: "S2 - Magister Pendidikan",
+      subjectArea: ["Matematika"],
+      isHomeroom: true,
+    },
+    {
+      tenantId: tenant1.id,
+      userId: guru3.id,
+      nip: "199003202012011003",
+      gender: "L",
+      birthPlace: "Surakarta",
+      birthDate: "1990-03-20",
+      nik: "3174032003900003",
+      religion: "Islam",
+      education: "S1 - Sarjana Pendidikan",
+      subjectArea: ["Bahasa Indonesia", "IPS"],
+      isHomeroom: true,
+    },
   ]);
 
   // ─── 7. ATTENDANCE ───

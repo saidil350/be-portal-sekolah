@@ -151,6 +151,11 @@ export const PATCH = withErrorHandler(
     } else if (user.role === "GURU") {
       const teacherUpdate: Record<string, any> = { updatedAt: new Date() };
       if (parsed.gender !== undefined) teacherUpdate.gender = parsed.gender;
+      if (parsed.birthPlace !== undefined) teacherUpdate.birthPlace = parsed.birthPlace;
+      if (parsed.birthDate !== undefined) teacherUpdate.birthDate = parsed.birthDate;
+      if (parsed.nik !== undefined) teacherUpdate.nik = parsed.nik;
+      if (parsed.religion !== undefined) teacherUpdate.religion = parsed.religion;
+      if (parsed.education !== undefined) teacherUpdate.education = parsed.education;
 
       if (Object.keys(teacherUpdate).length > 1) {
         const existing = await db.query.teacherProfiles.findFirst({

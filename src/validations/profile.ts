@@ -14,6 +14,7 @@ export const updateProfileSchema = z.object({
   gender: z.string().optional().or(z.literal("")),
   nik: z.string().optional().or(z.literal("")),
   religion: z.string().optional().or(z.literal("")),
+  education: z.string().optional().or(z.literal("")),
   fatherName: z.string().optional().or(z.literal("")),
   fatherOccupation: z.string().optional().or(z.literal("")),
   motherName: z.string().optional().or(z.literal("")),
