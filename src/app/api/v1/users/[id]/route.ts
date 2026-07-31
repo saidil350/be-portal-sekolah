@@ -4,12 +4,63 @@ import { successResponse } from "@/utils/apiResponse";
 import { withAuth } from "@/middleware/auth";
 import { withRole } from "@/middleware/rbacMiddleware";
 import { db } from "@/db";
-import { users } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { users, studentProfiles, teacherProfiles, studentClassHistory, classes, academicYears } from "@/db/schema";
+import { eq, desc } from "drizzle-orm";
 import { updateUserSchema } from "@/validations/user";
 import { NotFoundError, ForbiddenError } from "@/utils/AppError";
 
-function mapUserToResponse(user: typeof users.$inferSelect) {
+async function fetchFullUserData(user: typeof users.$inferSelect) {
+  let studentProfile = null;
+  let teacherProfile = null;
+  let currentClass = null;
+  let academicHistory: any[] = [];
+
+  if (user.role === "SISWA") {
+    studentProfile = await db.query.studentProfiles.findFirst({
+      where: eq(studentProfiles.userId, user.id),
+    });
+
+    if (studentProfile?.classId) {
+      currentClass = await db.query.classes.findFirst({
+        where: eq(classes.id, studentProfile.classId),
+      });
+    }
+
+    try {
+      const historyRows = await db
+        .select({
+          id: studentClassHistory.id,
+          academicYear: academicYears.name,
+          semester: academicYears.semester,
+          className: classes.name,
+          level: classes.level,
+          status: studentClassHistory.status,
+          createdAt: studentClassHistory.createdAt,
+        })
+        .from(studentClassHistory)
+        .leftJoin(classes, eq(studentClassHistory.classId, classes.id))
+        .leftJoin(academicYears, eq(studentClassHistory.academicYearId, academicYears.id))
+        .where(eq(studentClassHistory.studentId, user.id))
+        .orderBy(desc(studentClassHistory.createdAt));
+
+      academicHistory = historyRows.map((h, idx) => ({
+        academicYear: h.academicYear || "2025/2026",
+        grade: h.level ? `Kelas ${h.level}` : "Kelas",
+        className: h.className || "Kelas",
+        semester: `Semester ${h.semester || 1}`,
+        status: h.status === "PROMOTED" ? "Naik Kelas" : h.status === "GRADUATED" ? "Lulus" : "Tinggal Kelas",
+        isCurrent: idx === 0,
+      }));
+    } catch (err) {
+      console.warn("Notice: student_class_history query error:", err);
+      academicHistory = [];
+    }
+  } else if (user.role === "GURU") {
+    teacherProfile = await db.query.teacherProfiles.findFirst({
+      where: eq(teacherProfiles.userId, user.id),
+    });
+  }
+
   return {
     id: user.id,
     email: user.email,
@@ -17,7 +68,13 @@ function mapUserToResponse(user: typeof users.$inferSelect) {
     role: user.role,
     tenantId: user.tenantId,
     avatarUrl: user.image,
+    phone: user.phone,
+    address: user.address,
     isActive: user.isActive,
+    studentProfile,
+    teacherProfile,
+    currentClass,
+    academicHistory,
     createdAt: user.createdAt.toISOString(),
     updatedAt: user.updatedAt.toISOString(),
   };
@@ -44,7 +101,8 @@ export const GET = withErrorHandler(
       throw new ForbiddenError("You do not have access to this user");
     }
 
-    return successResponse(mapUserToResponse(user), "User retrieved successfully");
+    const fullData = await fetchFullUserData(user);
+    return successResponse(fullData, "User retrieved successfully");
   })
 );
 
@@ -117,8 +175,9 @@ export const PATCH = withErrorHandler(
       throw new NotFoundError("User not found after update");
     }
 
+    const fullData = await fetchFullUserData(updatedUser);
     return successResponse(
-      mapUserToResponse(updatedUser),
+      fullData,
       "User updated successfully"
     );
   })
