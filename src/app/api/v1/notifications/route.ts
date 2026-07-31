@@ -11,7 +11,12 @@ function formatDate(val: any): string | null {
   if (!val) return null;
   if (val instanceof Date) return val.toISOString();
   try {
-    return new Date(val).toISOString();
+    let str = String(val);
+    if (!str.endsWith("Z") && !str.includes("+") && !str.includes("Z")) {
+      str = str.replace(" ", "T") + "Z";
+    }
+    const d = new Date(str);
+    return isNaN(d.getTime()) ? null : d.toISOString();
   } catch {
     return null;
   }

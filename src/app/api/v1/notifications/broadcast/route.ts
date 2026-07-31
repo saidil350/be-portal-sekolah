@@ -13,7 +13,12 @@ function formatDate(val: any): string | null {
   if (!val) return null;
   if (val instanceof Date) return val.toISOString();
   try {
-    return new Date(val).toISOString();
+    let str = String(val);
+    if (!str.endsWith("Z") && !str.includes("+") && !str.includes("Z")) {
+      str = str.replace(" ", "T") + "Z";
+    }
+    const d = new Date(str);
+    return isNaN(d.getTime()) ? null : d.toISOString();
   } catch {
     return null;
   }
@@ -86,6 +91,7 @@ export const POST = withErrorHandler(
     const safeTargetRole = (parsed.targetRole && parsed.targetRole.trim().length > 0) ? parsed.targetRole : undefined;
     const safeLink = (parsed.link && parsed.link.trim().length > 0) ? parsed.link : undefined;
 
+    const now = new Date();
     const inserted = await db
       .insert(notifications)
       .values({
@@ -96,6 +102,8 @@ export const POST = withErrorHandler(
         userId: safeUserId,
         targetRole: safeTargetRole,
         link: safeLink,
+        createdAt: now,
+        updatedAt: now,
       })
       .returning();
 

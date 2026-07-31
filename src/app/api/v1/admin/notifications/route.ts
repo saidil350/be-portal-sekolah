@@ -6,6 +6,21 @@ import { db } from "@/db";
 import { notifications, users } from "@/db/schema";
 import { eq, sql, desc, and, isNull } from "drizzle-orm";
 
+function formatDate(val: any): string | null {
+  if (!val) return null;
+  if (val instanceof Date) return val.toISOString();
+  try {
+    let str = String(val);
+    if (!str.endsWith("Z") && !str.includes("+") && !str.includes("Z")) {
+      str = str.replace(" ", "T") + "Z";
+    }
+    const d = new Date(str);
+    return isNaN(d.getTime()) ? null : d.toISOString();
+  } catch {
+    return null;
+  }
+}
+
 function getAudienceLabel(userId: string | null, targetRole: string | null) {
   if (userId) return "Spesifik User";
   if (!targetRole || targetRole === "ALL") return "Semua Pengguna";
@@ -54,7 +69,7 @@ export const GET = withErrorHandler(
       status: 'Selesai',
       id: n.id,
       targetRole: n.targetRole || 'ALL',
-      createdAt: n.createdAt
+      createdAt: formatDate(n.createdAt) || new Date().toISOString()
     }));
 
     const stats = {
