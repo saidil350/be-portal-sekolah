@@ -106,6 +106,26 @@ async function main() {
 
   const tenant1Users = await db.select().from(users);
 
+  // Create accounts in better-auth account table for credential login
+  for (const u of tenant1Users) {
+    await db.insert(account).values({
+      id: `cred_${u.id}`,
+      userId: u.id,
+      providerId: "credential",
+      accountId: u.email,
+      password: u.password || hashedPassword,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).onConflictDoNothing();
+  }
+
+  // Create SPP tariffs
+  await db.insert(sppTariffs).values([
+    { tenantId: tenant1.id, name: "Tarif SPP Standar Kelas 10", amount: 500000, academicYear: "2025/2026", grade: "10", isActive: true },
+    { tenantId: tenant1.id, name: "Tarif SPP Standar Kelas 11", amount: 500000, academicYear: "2025/2026", grade: "11", isActive: true },
+    { tenantId: tenant1.id, name: "Tarif SPP Standar Kelas 12", amount: 550000, academicYear: "2025/2026", grade: "12", isActive: true },
+  ]).onConflictDoNothing();
+
   const superAdmin = tenant1Users.find(u => u.role === "SUPER_ADMIN");
   const adminIt = tenant1Users.find(u => u.role === "ADMIN_IT");
   const kepsek = tenant1Users.find(u => u.role === "KEPALA_SEKOLAH");
