@@ -7,7 +7,7 @@ import { sppInvoices, users, payments } from "@/db/schema";
 import { eq, desc, and, or, ilike, sql } from "drizzle-orm";
 
 export const GET = withErrorHandler(
-  withRole(["ADMIN_IT", "KEPALA_SEKOLAH"], async (req, _context, authSession) => {
+  withRole(["ADMIN_IT", "KEPALA_SEKOLAH", "BENDAHARA", "STAFF"], async (req, _context, authSession) => {
     const tenantId = authSession.user.tenantId;
     if (!tenantId) {
       return errorResponse("Tenant context missing", 400);

@@ -27,7 +27,7 @@ const createSchema = z.object({
 });
 
 export const GET = withErrorHandler(
-  withRole(["ADMIN_IT", "KEPALA_SEKOLAH"], async (req, _context, authSession) => {
+  withRole(["ADMIN_IT", "KEPALA_SEKOLAH", "BENDAHARA", "STAFF"], async (req, _context, authSession) => {
     const tenantId = authSession.user.tenantId;
     if (!tenantId) return errorResponse("Tenant context missing", 400);
 
@@ -84,7 +84,7 @@ export const GET = withErrorHandler(
 );
 
 export const POST = withErrorHandler(
-  withRole(["ADMIN_IT"], async (req, _context, authSession) => {
+  withRole(["ADMIN_IT", "BENDAHARA"], async (req, _context, authSession) => {
     const tenantId = authSession.user.tenantId;
     if (!tenantId) return errorResponse("Tenant context missing", 400);
 

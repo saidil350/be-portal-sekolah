@@ -14,7 +14,7 @@ const bulkActionSchema = z.object({
 });
 
 export const POST = withErrorHandler(
-  withRole(["ADMIN_IT"], async (req, _context, authSession) => {
+  withRole(["ADMIN_IT", "BENDAHARA"], async (req, _context, authSession) => {
     const tenantId = authSession.user.tenantId;
     if (!tenantId) return errorResponse("Tenant context missing", 400);
 

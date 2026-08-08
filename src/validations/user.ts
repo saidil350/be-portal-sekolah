@@ -3,7 +3,7 @@ import { z } from "zod";
 export const createUserSchema = z.object({
   email: z.string().email("Format email tidak valid"),
   name: z.string().min(2, "Nama lengkap minimal 2 karakter"),
-  role: z.enum(["ADMIN_IT", "KEPALA_SEKOLAH", "GURU", "SISWA", "STAFF"]),
+  role: z.enum(["ADMIN_IT", "KEPALA_SEKOLAH", "BENDAHARA", "GURU", "SISWA", "STAFF"]),
   password: z
     .string()
     .min(8, "Kata sandi minimal 8 karakter")
@@ -20,7 +20,7 @@ export const createUserSchema = z.object({
 export const updateUserSchema = z.object({
   name: z.string().min(1).optional(),
   email: z.string().email().optional(),
-  role: z.enum(["ADMIN_IT", "KEPALA_SEKOLAH", "GURU", "SISWA"]).optional(),
+  role: z.enum(["ADMIN_IT", "KEPALA_SEKOLAH", "BENDAHARA", "GURU", "SISWA", "STAFF"]).optional(),
   isActive: z.boolean().optional(),
   image: z.string().nullable().optional(),
   nisn: z.string().nullable().optional(),

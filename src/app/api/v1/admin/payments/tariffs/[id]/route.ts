@@ -19,7 +19,7 @@ const updateSchema = z.object({
 });
 
 export const PUT = withErrorHandler(
-  withRole(["ADMIN_IT"], async (req, { params }, authSession) => {
+  withRole(["ADMIN_IT", "BENDAHARA"], async (req, { params }, authSession) => {
     const tenantId = authSession.user.tenantId;
     if (!tenantId) return errorResponse("Tenant context missing", 400);
 
@@ -54,7 +54,7 @@ export const PUT = withErrorHandler(
 );
 
 export const DELETE = withErrorHandler(
-  withRole(["ADMIN_IT"], async (req, { params }, authSession) => {
+  withRole(["ADMIN_IT", "BENDAHARA"], async (req, { params }, authSession) => {
     const tenantId = authSession.user.tenantId;
     if (!tenantId) return errorResponse("Tenant context missing", 400);
 

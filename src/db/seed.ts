@@ -84,6 +84,7 @@ async function main() {
     { tenantId: tenant1.id, name: "Super Admin", email: "superadmin@portalsekolah.id", password: hashedPassword, role: "SUPER_ADMIN", emailVerified: true, isActive: true },
     { tenantId: tenant1.id, name: "Ahmad Fauzi", email: "admin.it@sekolah1.sch.id", password: hashedPassword, role: "ADMIN_IT", emailVerified: true, isActive: true },
     { tenantId: tenant1.id, name: "Dr. Siti Rahayu", email: "kepsek@sekolah1.sch.id", password: hashedPassword, role: "KEPALA_SEKOLAH", emailVerified: true, isActive: true },
+    { tenantId: tenant1.id, name: "Hj. Ratna Sari, S.E.", email: "bendahara@sekolah1.sch.id", password: hashedPassword, role: "BENDAHARA", emailVerified: true, isActive: true },
     { tenantId: tenant1.id, name: "Dewi Kartika", email: "staff.keuangan@sekolah1.sch.id", password: hashedPassword, role: "STAFF", emailVerified: true, isActive: true },
     { tenantId: tenant1.id, name: "Budi Santoso", email: "guru.budi@sekolah1.sch.id", password: hashedPassword, role: "GURU", emailVerified: true, isActive: true },
     { tenantId: tenant1.id, name: "Siti Aminah, S.Pd", email: "siti.aminah@sekolah1.sch.id", password: hashedPassword, role: "GURU", emailVerified: true, isActive: true },
