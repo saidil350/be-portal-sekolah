@@ -5,7 +5,7 @@ import { withRole } from "@/middleware/rbacMiddleware";
 import { PaymentService } from "@/services/payment.service";
 
 export const POST = withErrorHandler(
-  withRole(["ADMIN_IT", "KEPALA_SEKOLAH"], async (req, { params }, authSession) => {
+  withRole(["BENDAHARA"], async (req, { params }, authSession) => {
     // Await params to avoid Next.js warnings/errors in newer Next versions
     const resolvedParams = await params;
     const invoiceId = resolvedParams.id;

@@ -38,7 +38,7 @@ const publishSchema = z.object({
 });
 
 export const POST = withErrorHandler(
-  withRole(["ADMIN_IT", "BENDAHARA"], async (req, _context, authSession) => {
+  withRole(["BENDAHARA"], async (req, _context, authSession) => {
     const tenantId = authSession.user.tenantId;
     if (!tenantId) return errorResponse("Tenant context missing", 400);
 
